@@ -1,5 +1,6 @@
 import { soundEngine } from './audio';
-import { createLevel, GAME_H, GAME_W, TILE } from './levels';
+import { Lang, TEXTS } from './i18n';
+import { createLevel, GAME_H, GAME_W } from './levels';
 import {
   FloatingText,
   HudSnapshot,
@@ -19,6 +20,8 @@ const BASE_STAND_W = 42;
 const BASE_STAND_H = 64;
 const CROUCH_W = 44;
 const CROUCH_H = 36;
+const BOAT_W = 68;
+const BOAT_H = 44;
 
 export interface EngineCallbacks {
   onHudUpdate: (hud: HudSnapshot) => void;
@@ -39,7 +42,10 @@ export class SuperKennethEngine {
   public tick = 0;
   public score = 0;
   public coins = 0;
+  public starsCollected = 0;
+  public totalStars = 3;
   public isRunning = false;
+  public lang: Lang = 'de';
   public recentToolUnlock: ToolInfo | null = null;
   private recentToolTimer = 0;
   private levelFinishTimer = -1;
@@ -47,25 +53,37 @@ export class SuperKennethEngine {
   private callbacks: EngineCallbacks;
   private hudSyncCounter = 0;
 
-  constructor(callbacks: EngineCallbacks) {
+  constructor(callbacks: EngineCallbacks, initialLang: Lang = 'de') {
     this.callbacks = callbacks;
+    this.lang = initialLang;
     this.level = createLevel(0);
     this.player = this.createFreshPlayer([]);
     this.loadLevel(0, true);
   }
 
+  public setLang(lang: Lang) {
+    this.lang = lang;
+    this.emitHud();
+  }
+
+  private t() {
+    return TEXTS[this.lang];
+  }
+
   private createFreshPlayer(keepTools: ToolId[]): Player {
+    const isBoat = this.level.theme.mode === 'topdown_boat';
     return {
       x: this.level.spawnX,
       y: this.level.spawnY,
-      w: BASE_STAND_W,
-      h: BASE_STAND_H,
+      w: isBoat ? BOAT_W : BASE_STAND_W,
+      h: isBoat ? BOAT_H : BASE_STAND_H,
       vx: 0,
       vy: 0,
       facingRight: true,
       onGround: false,
       jumpsRemaining: 2,
       isCrouching: false,
+      isShielding: false,
       attackTimer: 0,
       attackCooldown: 0,
       boomerangCooldown: 0,
@@ -76,6 +94,8 @@ export class SuperKennethEngine {
       jumpBufferTimer: 0,
       safeX: this.level.spawnX,
       safeY: this.level.spawnY,
+      checkpointX: this.level.spawnX,
+      checkpointY: this.level.spawnY,
       healthStamina: 100,
       maxHealthStamina: 100,
       toolEnergy: 100,
@@ -89,10 +109,19 @@ export class SuperKennethEngine {
   public startNewGame(startLevelIndex = 0) {
     this.score = 0;
     this.coins = 0;
-    this.loadLevel(startLevelIndex, true);
+    // Grant starter tools automatically when jumping directly to later worlds from World Map
+    const starterTools: ToolId[] = [];
+    if (startLevelIndex >= 1) starterTools.push('power_gloves', 'star_boomerang');
+    if (startLevelIndex >= 2) starterTools.push('turbo_boots', 'sun_sword');
+    if (startLevelIndex >= 3) starterTools.push('aegis_shield');
+    this.loadLevel(startLevelIndex, true, starterTools);
   }
 
-  public loadLevel(index: number, resetLivesAndTools: boolean) {
+  public loadLevel(
+    index: number,
+    resetLivesAndTools: boolean,
+    explicitTools?: ToolId[]
+  ) {
     this.levelIndex = index;
     this.level = createLevel(index);
     this.projectiles = [];
@@ -103,9 +132,12 @@ export class SuperKennethEngine {
     this.levelFinishTimer = -1;
     this.recentToolUnlock = null;
     this.recentToolTimer = 0;
+    this.starsCollected = 0;
+    this.totalStars =
+      this.level.collectibles.filter((c) => c.kind === 'super_star').length || 3;
 
     if (resetLivesAndTools) {
-      this.player = this.createFreshPlayer([]);
+      this.player = this.createFreshPlayer(explicitTools ?? []);
     } else {
       const preservedLives = Math.max(1, this.player.lives);
       const preservedTools = [...this.player.tools];
@@ -137,8 +169,8 @@ export class SuperKennethEngine {
         x,
         y,
         vx: Math.cos(angle) * mag,
-        vy: Math.sin(angle) * mag - 1.5,
-        size: 3 + Math.random() * 5,
+        vy: Math.sin(angle) * mag - 1.2,
+        size: 3 + Math.random() * 5.5,
         color,
         life,
         maxLife: life,
@@ -196,9 +228,19 @@ export class SuperKennethEngine {
       this.player.healthStamina = this.player.maxHealthStamina;
       if (this.player.lives < this.player.maxLives) {
         this.player.lives++;
-        this.addText(this.player.x, this.player.y - 30, '+1 Leben!', '#34d399');
+        this.addText(
+          this.player.x,
+          this.player.y - 30,
+          this.lang === 'de' ? '+1 Leben!' : '+1 Life!',
+          '#34d399'
+        );
       } else {
-        this.addText(this.player.x, this.player.y - 30, 'Energie voll!', '#34d399');
+        this.addText(
+          this.player.x,
+          this.player.y - 30,
+          this.lang === 'de' ? 'Energie voll!' : 'Full Energy!',
+          '#34d399'
+        );
       }
       soundEngine.heal();
     }
@@ -208,14 +250,23 @@ export class SuperKennethEngine {
     const p = this.player;
     if (p.invulnTimer > 0 && !fromPitOrLava) return;
 
-    p.healthStamina = Math.max(0, p.healthStamina - amount);
+    // Aegis Shield reduces non-pit contact damage by 60%!
+    const finalAmt =
+      !fromPitOrLava && p.isShielding ? Math.max(5, Math.round(amount * 0.4)) : amount;
+
+    p.healthStamina = Math.max(0, p.healthStamina - finalAmt);
     this.screenShake = 8;
 
     if (p.healthStamina > 0) {
       soundEngine.hurt();
       p.invulnTimer = 75;
       p.hitFlash = 16;
-      this.addText(p.x, p.y - 16, `-${amount} Energie`, '#fb7185');
+      this.addText(
+        p.x,
+        p.y - 16,
+        `-${finalAmt} ${this.t().energy}`,
+        '#fb7185'
+      );
       this.addParticles(p.x + p.w / 2, p.y + p.h / 2, '#fb7185', 10, 5, 0.2);
 
       if (fromPitOrLava) {
@@ -225,16 +276,18 @@ export class SuperKennethEngine {
         p.vy = -4;
         p.jumpsRemaining = 2;
         this.addParticles(p.x + p.w / 2, p.y + p.h / 2, '#38bdf8', 16, 6, 0.1, true);
-        this.addText(p.x, p.y - 36, 'Rettungs-Blase!', '#38bdf8');
-      } else {
+        this.addText(p.x, p.y - 36, this.t().floatRescueBubble, '#38bdf8');
+      } else if (this.level.theme.mode === 'platformer') {
         p.vy = -7;
         p.vx = p.facingRight ? -4.5 : 4.5;
+      } else {
+        p.vx = -3;
       }
       this.emitHud();
       return;
     }
 
-    // Health-Stamina hit 0 -> lose 1 of 10 lives!
+    // Health-Stamina hit 0 -> lose 1 of 10 lives & respawn at LATEST CHECKPOINT!
     p.lives = Math.max(0, p.lives - 1);
     soundEngine.lifeLost();
 
@@ -245,21 +298,24 @@ export class SuperKennethEngine {
       return;
     }
 
-    // Respawn with fresh 100 Health-Stamina at safe spot / checkpoint
+    const isBoat = this.level.theme.mode === 'topdown_boat';
     p.healthStamina = p.maxHealthStamina;
     p.toolEnergy = p.maxToolEnergy;
     p.invulnTimer = 110;
     p.hitFlash = 20;
     p.isCrouching = false;
-    p.w = BASE_STAND_W;
-    p.h = BASE_STAND_H;
-    p.x = p.safeX;
-    p.y = p.safeY - 18;
+    p.w = isBoat ? BOAT_W : BASE_STAND_W;
+    p.h = isBoat ? BOAT_H : BASE_STAND_H;
+    p.x = p.checkpointX;
+    p.y = p.checkpointY - (isBoat ? 0 : 12);
+    p.safeX = p.checkpointX;
+    p.safeY = p.checkpointY;
     p.vx = 0;
-    p.vy = -3;
+    p.vy = isBoat ? 0 : -3;
     p.jumpsRemaining = 2;
-    this.addParticles(p.x + p.w / 2, p.y + p.h / 2, '#fbbf24', 18, 7, 0.12, true);
-    this.addText(p.x, p.y - 24, '-1 Leben · Neue Energie!', '#facc15');
+
+    this.addParticles(p.x + p.w / 2, p.y + p.h / 2, '#fbbf24', 20, 7, 0.12, true);
+    this.addText(p.x, p.y - 24, this.t().floatLifeLost, '#facc15');
     this.emitHud();
   }
 
@@ -294,7 +350,12 @@ export class SuperKennethEngine {
         this.score += 500;
         soundEngine.gem();
         this.addParticles(tile.x + 24, tile.y - 10, '#facc15', 18, 7, 0.2, true);
-        this.addText(tile.x, tile.y - 18, '+5 Münzen!', '#facc15');
+        this.addText(
+          tile.x,
+          tile.y - 18,
+          this.lang === 'de' ? '+5 Münzen!' : '+5 Coins!',
+          '#facc15'
+        );
       } else if (reward === 'heart' || reward === 'big_heart') {
         const heal = reward === 'big_heart' ? 60 : 35;
         this.player.healthStamina = Math.min(
@@ -303,7 +364,12 @@ export class SuperKennethEngine {
         );
         soundEngine.heal();
         this.addParticles(tile.x + 24, tile.y - 10, '#fb7185', 14, 6, 0.15, true);
-        this.addText(tile.x, tile.y - 18, `+${heal} Energie!`, '#34d399');
+        this.addText(
+          tile.x,
+          tile.y - 18,
+          `+${heal} ${this.t().energy}`,
+          '#34d399'
+        );
       }
       this.emitHud();
     } else if (tile.kind === 'brick' && (fromBelow || this.player.attackTimer > 0)) {
@@ -316,10 +382,10 @@ export class SuperKennethEngine {
       this.screenShake = 6;
       this.score += 120;
       this.addParticles(tile.x + 24, tile.y + 24, '#94a3b8', 16, 7);
-      this.addText(tile.x, tile.y - 12, 'Zerschmettert!', '#f97316');
+      this.addText(tile.x, tile.y - 12, this.t().floatSmashed, '#f97316');
       this.level.tiles = this.level.tiles.filter((t) => t.id !== tile.id);
     } else if (tile.kind === 'cracked' && !fromBelow) {
-      this.addText(tile.x - 16, tile.y - 14, 'Kraft-Handschuhe nötig!', '#cbd5e1');
+      this.addText(tile.x - 16, tile.y - 14, this.t().floatNeedGloves, '#cbd5e1');
     } else {
       tile.bumpY = -6;
     }
@@ -341,7 +407,6 @@ export class SuperKennethEngine {
       }
     }
 
-    // Handle Victory Delay after Boss defeated
     if (this.levelFinishTimer > 0) {
       this.levelFinishTimer--;
       if (this.tick % 8 === 0) {
@@ -358,7 +423,7 @@ export class SuperKennethEngine {
       this.updateParticlesAndTexts();
       if (this.levelFinishTimer === 0) {
         this.isRunning = false;
-        if (this.levelIndex === 0) {
+        if (this.levelIndex < 3) {
           this.callbacks.onLevelClear(this.levelIndex, this.score, this.coins);
         } else {
           this.callbacks.onVictory(this.score, this.coins);
@@ -373,16 +438,204 @@ export class SuperKennethEngine {
     if (p.attackTimer > 0) p.attackTimer--;
     if (p.attackCooldown > 0) p.attackCooldown--;
     if (p.boomerangCooldown > 0) p.boomerangCooldown--;
-    p.toolEnergy = Math.min(p.maxToolEnergy, p.toolEnergy + 0.55);
+    p.toolEnergy = Math.min(p.maxToolEnergy, p.toolEnergy + 0.6);
+
+    p.isShielding = input.shieldHeld && this.hasTool('aegis_shield') && p.toolEnergy > 5;
+    if (p.isShielding) {
+      p.toolEnergy = Math.max(0, p.toolEnergy - 0.3);
+    }
+
+    if (this.level.theme.mode === 'topdown_boat') {
+      this.updateTopDownBoatMode(input);
+    } else {
+      this.updatePlatformerMode(input);
+    }
+
+    this.updateParticlesAndTexts();
+    this.hudSyncCounter++;
+    if (this.hudSyncCounter >= 4) {
+      this.hudSyncCounter = 0;
+      this.emitHud();
+    }
+  }
+
+  private updateTopDownBoatMode(input: InputState) {
+    const p = this.player;
+    const hasTurbo = this.hasTool('turbo_boots');
+    const maxSpd = hasTurbo ? 6.8 : 5.4;
+    const bossActive = this.level.boss.active;
+
+    // 4-way steering + gentle forward river current unless in Boss Arena
+    let targetVx = bossActive ? 0 : 1.75;
+    let targetVy = 0;
+
+    if (input.left) targetVx = -maxSpd * 0.85;
+    if (input.right) targetVx = maxSpd;
+    if (input.up || input.jumpHeld) targetVy = -maxSpd * 0.9;
+    if (input.down) targetVy = maxSpd * 0.9;
+    if (input.jumpJustPressed && !input.up) {
+      // Turbo dash boost!
+      targetVx += 4.5;
+      this.addParticles(p.x, p.y + p.h / 2, '#bae6fd', 8, 4, 0);
+    }
+    input.jumpJustPressed = false;
+
+    p.vx += (targetVx - p.vx) * 0.16;
+    p.vy += (targetVy - p.vy) * 0.18;
+    p.facingRight = true;
+
+    p.x += p.vx;
+    p.y += p.vy;
+
+    // Keep boat inside navigable river banks (y: 94 .. 626)
+    const minX = bossActive ? this.level.boss.arenaMinX + 20 : 20;
+    const maxX = bossActive
+      ? this.level.boss.arenaMaxX - p.w - 20
+      : this.level.width - p.w - 20;
+    p.x = Math.max(minX, Math.min(maxX, p.x));
+    p.y = Math.max(96, Math.min(GAME_H - 96 - p.h, p.y));
+
+    // Water wake foam particles
+    if (this.tick % 3 === 0) {
+      this.particles.push({
+        x: p.x + 6,
+        y: p.y + p.h / 2 + (Math.random() - 0.5) * 16,
+        vx: -2.2,
+        vy: (Math.random() - 0.5) * 0.8,
+        size: 5 + Math.random() * 4,
+        color: 'rgba(224, 242, 254, 0.75)',
+        life: 16,
+        maxLife: 16,
+        gravity: 0,
+      });
+    }
+
+    // Boat Attack (Star Cannon / Ram Blast!)
+    if ((input.attackJustPressed || input.toolJustPressed) && p.attackCooldown <= 0) {
+      p.attackTimer = 10;
+      p.attackCooldown = 16;
+      soundEngine.boomerang();
+      this.projectiles.push({
+        id: this.nextProjId++,
+        fromPlayer: true,
+        kind: this.hasTool('sun_sword') ? 'shockwave' : 'boomerang',
+        x: p.x + p.w,
+        y: p.y + p.h / 2 - 14,
+        w: 30,
+        h: 28,
+        vx: 11.5,
+        vy: 0,
+        damage: this.hasTool('sun_sword') ? 3 : 2,
+        life: 44,
+        maxLife: 44,
+        returning: false,
+        rotation: 0,
+      });
+    }
+    input.attackJustPressed = false;
+    input.toolJustPressed = false;
+
+    // Checkpoints (River Buoy Gates)
+    for (const cp of this.level.checkpoints) {
+      if (!cp.activated && p.x + p.w / 2 >= cp.x) {
+        cp.activated = true;
+        p.checkpointX = cp.x;
+        p.checkpointY = cp.y;
+        p.healthStamina = Math.min(p.maxHealthStamina, p.healthStamina + 25);
+        soundEngine.checkpoint();
+        this.addParticles(cp.x + 12, cp.y + 12, '#34d399', 16, 6, 0, true);
+        this.addText(cp.x - 20, cp.y - 24, this.t().floatCheckpoint, '#34d399');
+        this.emitHud();
+      }
+    }
+
+    // Collectibles
+    for (const col of this.level.collectibles) {
+      if (!col.collected && this.overlaps(p, col)) {
+        this.collectItem(col);
+      }
+    }
+
+    // Boat Obstacles (Crates, Rocks, Icebergs, Whirlpools, Mines)
+    for (const obs of this.level.boatObstacles) {
+      if (!obs.alive) continue;
+      if (obs.hitFlash > 0) obs.hitFlash--;
+
+      if (obs.kind === 'mine') {
+        obs.y += obs.vy;
+        if (obs.y < 110 || obs.y > GAME_H - 150) {
+          obs.vy *= -1;
+        }
+      }
+
+      if (this.overlaps(p, obs)) {
+        if (obs.kind === 'crate' || obs.kind === 'heart_crate') {
+          this.smashBoatCrate(obs);
+        } else if (obs.kind === 'whirlpool') {
+          // Spins & slows slightly + small damage unless shielding
+          p.vx *= 0.4;
+          p.vy += Math.sin(this.tick * 0.4) * 3;
+          if (!p.isShielding) {
+            this.damagePlayer(15, false);
+          }
+        } else {
+          if (obs.kind === 'mine') {
+            obs.alive = false;
+            this.addParticles(obs.x + 20, obs.y + 20, '#fb923c', 16, 7);
+          }
+          if (p.isShielding) {
+            this.addText(p.x, p.y - 16, this.t().floatShieldBlock, '#38bdf8');
+            p.invulnTimer = 30;
+          } else {
+            this.damagePlayer(20, false);
+          }
+        }
+      }
+    }
+
+    this.updateProjectiles();
+    this.updateBoss();
+
+    // Camera follow
+    if (this.level.boss.active) {
+      const targetCam = this.level.boss.arenaMinX - 40;
+      this.cameraX += (targetCam - this.cameraX) * 0.12;
+    } else {
+      const desiredCam = Math.max(
+        0,
+        Math.min(this.level.width - GAME_W, p.x - GAME_W * 0.25)
+      );
+      this.cameraX += (desiredCam - this.cameraX) * 0.14;
+    }
+  }
+
+  private smashBoatCrate(obs: LevelDefinition['boatObstacles'][number]) {
+    obs.alive = false;
+    soundEngine.blockBreak();
+    this.addParticles(obs.x + 24, obs.y + 24, '#d97706', 14, 6);
+    if (obs.kind === 'heart_crate') {
+      this.player.healthStamina = Math.min(
+        this.player.maxHealthStamina,
+        this.player.healthStamina + 35
+      );
+      soundEngine.heal();
+      this.addText(obs.x, obs.y - 12, `+35 ${this.t().energy}`, '#34d399');
+    } else {
+      this.addCoins(3);
+      this.score += 250;
+      soundEngine.coin();
+      this.addText(obs.x, obs.y - 12, '+250', '#facc15');
+    }
+    this.emitHud();
+  }
+
+  private updatePlatformerMode(input: InputState) {
+    const p = this.player;
 
     // Tile bounce & spring animations
     for (const t of this.level.tiles) {
-      if (t.bumpY < 0) {
-        t.bumpY = Math.min(0, t.bumpY + 1.4);
-      }
-      if (t.springAnim && t.springAnim > 0) {
-        t.springAnim--;
-      }
+      if (t.bumpY < 0) t.bumpY = Math.min(0, t.bumpY + 1.4);
+      if (t.springAnim && t.springAnim > 0) t.springAnim--;
     }
 
     // Moving Platforms
@@ -404,24 +657,22 @@ export class SuperKennethEngine {
       plat.dy = plat.y - prevY;
     }
 
-    // Crouch handling
+    // Crouch
     if (input.down && p.onGround) {
       if (!p.isCrouching) {
-        const diff = p.h - CROUCH_H;
-        p.y += diff;
+        p.y += p.h - CROUCH_H;
         p.h = CROUCH_H;
         p.w = CROUCH_W;
         p.isCrouching = true;
       }
     } else if (p.isCrouching && this.canStandUp()) {
-      const diff = BASE_STAND_H - p.h;
-      p.y -= diff;
+      p.y -= BASE_STAND_H - p.h;
       p.h = BASE_STAND_H;
       p.w = BASE_STAND_W;
       p.isCrouching = false;
     }
 
-    // Horizontal Movement (boosted by Turbo-Stiefel)
+    // Horizontal Movement
     const hasTurbo = this.hasTool('turbo_boots');
     const baseMaxSpeed = hasTurbo ? 7.1 : 5.6;
     const maxSpeed = p.isCrouching ? baseMaxSpeed * 0.55 : baseMaxSpeed;
@@ -453,7 +704,7 @@ export class SuperKennethEngine {
       });
     }
 
-    // Jump Buffer & Coyote Time
+    // Jump & Double Jump
     if (input.jumpJustPressed) {
       p.jumpBufferTimer = 8;
     } else if (p.jumpBufferTimer > 0) {
@@ -461,11 +712,8 @@ export class SuperKennethEngine {
     }
     input.jumpJustPressed = false;
 
-    if (p.onGround) {
-      p.coyoteTimer = 8;
-    } else if (p.coyoteTimer > 0) {
-      p.coyoteTimer--;
-    }
+    if (p.onGround) p.coyoteTimer = 8;
+    else if (p.coyoteTimer > 0) p.coyoteTimer--;
 
     const jumpPower = hasTurbo ? -15.0 : -14.2;
     const doubleJumpPower = hasTurbo ? -13.6 : -12.8;
@@ -491,7 +739,7 @@ export class SuperKennethEngine {
         p.jumpBufferTimer = 0;
         soundEngine.doubleJump();
         this.addParticles(p.x + p.w / 2, p.y + p.h, '#38bdf8', 12, 5, 0.05, true);
-        this.addText(p.x - 10, p.y + p.h, 'Doppel-Sprung!', '#bae6fd');
+        this.addText(p.x - 10, p.y + p.h, this.t().floatDoubleJump, '#bae6fd');
       }
     }
 
@@ -508,7 +756,6 @@ export class SuperKennethEngine {
       soundEngine.punch(hasGloves || hasSword);
 
       const atkBox = this.getAttackHitbox();
-      // Check blocks hit by punch/sword
       for (const t of [...this.level.tiles]) {
         if (
           (t.kind === 'brick' ||
@@ -520,7 +767,6 @@ export class SuperKennethEngine {
         }
       }
 
-      // Spawn short-range power wave if Kraft-Handschuhe or Sonnen-Klinge unlocked
       if (hasGloves || hasSword) {
         this.projectiles.push({
           id: this.nextProjId++,
@@ -571,10 +817,8 @@ export class SuperKennethEngine {
     }
     input.toolJustPressed = false;
 
-    // Gravity
+    // Gravity & X Collision
     p.vy = Math.min(p.vy + GRAVITY, MAX_FALL);
-
-    // Horizontal Movement & Collision
     p.x += p.vx;
     const minCamBound = this.level.boss.active ? this.level.boss.arenaMinX : 0;
     const maxWorldBound = this.level.boss.active
@@ -599,7 +843,7 @@ export class SuperKennethEngine {
       }
     }
 
-    // Vertical Movement & Collision
+    // Y Collision
     p.y += p.vy;
     p.onGround = false;
 
@@ -630,9 +874,9 @@ export class SuperKennethEngine {
             t.kind === 'grass' ||
             t.kind === 'stone' ||
             t.kind === 'crystal' ||
+            t.kind === 'cloud' ||
             t.kind === 'bridge'
           ) {
-            // Save safe rescue coordinate slightly away from edges
             p.safeX = Math.max(t.x, Math.min(t.x + t.w - p.w, p.x));
             p.safeY = t.y - BASE_STAND_H;
           }
@@ -644,7 +888,6 @@ export class SuperKennethEngine {
       }
     }
 
-    // Moving Platform Landing
     for (const plat of this.level.platforms) {
       if (
         p.vy >= 0 &&
@@ -668,7 +911,6 @@ export class SuperKennethEngine {
       p.animTimer = 0;
     }
 
-    // Pit fall rescue
     if (p.y > GAME_H + 36) {
       this.damagePlayer(35, true);
       return;
@@ -678,41 +920,32 @@ export class SuperKennethEngine {
     for (const cp of this.level.checkpoints) {
       if (
         !cp.activated &&
-        Math.abs(p.x + p.w / 2 - cp.x) < 48 &&
-        Math.abs(p.y + p.h - (cp.y + 72)) < 96
+        Math.abs(p.x + p.w / 2 - cp.x) < 52 &&
+        Math.abs(p.y + p.h - (cp.y + 72)) < 110
       ) {
         cp.activated = true;
-        p.safeX = cp.x - 10;
-        p.safeY = cp.y + 72 - BASE_STAND_H;
-        p.healthStamina = Math.min(
-          p.maxHealthStamina,
-          p.healthStamina + 25
-        );
+        p.checkpointX = cp.x - 10;
+        p.checkpointY = cp.y + 72 - BASE_STAND_H;
+        p.safeX = p.checkpointX;
+        p.safeY = p.checkpointY;
+        p.healthStamina = Math.min(p.maxHealthStamina, p.healthStamina + 25);
         soundEngine.checkpoint();
-        this.addParticles(cp.x + 12, cp.y + 20, '#34d399', 16, 6, 0.1, true);
-        this.addText(cp.x - 20, cp.y - 10, 'Checkpoint!', '#34d399');
+        this.addParticles(cp.x + 12, cp.y + 20, '#34d399', 18, 6, 0.1, true);
+        this.addText(cp.x - 20, cp.y - 10, this.t().floatCheckpoint, '#34d399');
         this.emitHud();
       }
     }
 
-    // Collectibles
     for (const col of this.level.collectibles) {
-      if (col.collected) continue;
-      if (this.overlaps(p, col)) {
+      if (!col.collected && this.overlaps(p, col)) {
         this.collectItem(col);
       }
     }
 
-    // Update Projectiles
     this.updateProjectiles();
-
-    // Update Enemies
     this.updateEnemies();
-
-    // Boss Activation & AI
     this.updateBoss();
 
-    // Camera Follow
     if (this.level.boss.active) {
       const targetCam = this.level.boss.arenaMinX - 40;
       this.cameraX += (targetCam - this.cameraX) * 0.12;
@@ -722,14 +955,6 @@ export class SuperKennethEngine {
         Math.min(this.level.width - GAME_W, p.x - GAME_W * 0.36)
       );
       this.cameraX += (desiredCam - this.cameraX) * 0.14;
-    }
-
-    this.updateParticlesAndTexts();
-
-    this.hudSyncCounter++;
-    if (this.hudSyncCounter >= 4) {
-      this.hudSyncCounter = 0;
-      this.emitHud();
     }
   }
 
@@ -746,6 +971,16 @@ export class SuperKennethEngine {
       soundEngine.gem();
       this.addParticles(col.x + 15, col.y + 16, '#38bdf8', 12, 6, 0.15, true);
       this.addText(col.x, col.y - 10, '+300', '#38bdf8');
+    } else if (col.kind === 'super_star') {
+      this.starsCollected++;
+      this.score += 750;
+      this.player.healthStamina = Math.min(
+        this.player.maxHealthStamina,
+        this.player.healthStamina + 30
+      );
+      soundEngine.chest();
+      this.addParticles(col.x + 18, col.y + 18, '#fde047', 22, 8, 0.1, true);
+      this.addText(col.x - 16, col.y - 16, `${this.t().floatStar} (${this.starsCollected}/${this.totalStars})`, '#fde047');
     } else if (col.kind === 'heart' || col.kind === 'apple') {
       const heal = col.kind === 'apple' ? 60 : 35;
       this.player.healthStamina = Math.min(
@@ -755,35 +990,41 @@ export class SuperKennethEngine {
       this.score += 150;
       soundEngine.heal();
       this.addParticles(col.x + 15, col.y + 15, '#fb7185', 12, 5, 0.1, true);
-      this.addText(col.x, col.y - 12, `+${heal} Energie`, '#34d399');
+      this.addText(col.x, col.y - 12, `+${heal} ${this.t().energy}`, '#34d399');
     } else if (col.kind === 'chest' && col.toolReward) {
       const toolId = col.toolReward;
       if (!this.player.tools.includes(toolId)) {
         this.player.tools.push(toolId);
       }
       const info = TOOLS_CATALOG[toolId];
+      const toolName = this.lang === 'de' ? info.nameDe : info.nameEn;
       this.recentToolUnlock = info;
       this.recentToolTimer = 280;
       this.score += 1000;
       this.player.healthStamina = this.player.maxHealthStamina;
       soundEngine.chest();
       this.addParticles(col.x + 26, col.y + 18, info.color, 26, 8, 0.12, true);
-      this.addText(col.x - 30, col.y - 24, `Neues Tool: ${info.name}!`, info.color);
+      this.addText(
+        col.x - 30,
+        col.y - 24,
+        `${this.t().newToolPrefix}: ${toolName}!`,
+        info.color
+      );
     }
     this.emitHud();
   }
 
   private updateProjectiles() {
     const p = this.player;
+    const isBoat = this.level.theme.mode === 'topdown_boat';
+
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const proj = this.projectiles[i];
       proj.life--;
       proj.rotation += 0.35;
 
-      if (proj.kind === 'boomerang') {
-        if (proj.life < proj.maxLife * 0.55) {
-          proj.returning = true;
-        }
+      if (proj.kind === 'boomerang' && !isBoat) {
+        if (proj.life < proj.maxLife * 0.55) proj.returning = true;
         if (proj.returning) {
           const tx = p.x + p.w / 2 - proj.w / 2;
           const ty = p.y + p.h / 2 - proj.h / 2;
@@ -800,7 +1041,6 @@ export class SuperKennethEngine {
         proj.x += proj.vx;
         proj.y += proj.vy;
 
-        // Collect coins & gems in boomerang path!
         for (const col of this.level.collectibles) {
           if (
             !col.collected &&
@@ -810,7 +1050,6 @@ export class SuperKennethEngine {
             this.collectItem(col);
           }
         }
-        // Trigger ? blocks
         for (const t of this.level.tiles) {
           if (t.kind === 'question' && !t.used && this.overlaps(proj, t)) {
             this.hitBlock(t, false);
@@ -822,17 +1061,39 @@ export class SuperKennethEngine {
       }
 
       if (proj.fromPlayer) {
-        // Check enemy hits
         for (const e of this.level.enemies) {
           if (e.alive && this.overlaps(proj, e)) {
             this.damageEnemy(e, proj.damage);
-            if (proj.kind === 'shockwave') {
+            if (proj.kind === 'shockwave' || isBoat) {
               proj.life = 0;
               break;
             }
           }
         }
-        // Check boss hit
+
+        if (isBoat) {
+          for (const obs of this.level.boatObstacles) {
+            if (!obs.alive) continue;
+            if (
+              (obs.kind === 'crate' ||
+                obs.kind === 'heart_crate' ||
+                obs.kind === 'mine') &&
+              this.overlaps(proj, obs)
+            ) {
+              if (obs.kind === 'mine') {
+                obs.alive = false;
+                this.score += 150;
+                soundEngine.enemyHit();
+                this.addParticles(obs.x + 20, obs.y + 20, '#fb923c', 12, 6);
+              } else {
+                this.smashBoatCrate(obs);
+              }
+              proj.life = 0;
+              break;
+            }
+          }
+        }
+
         const boss = this.level.boss;
         if (
           boss.active &&
@@ -841,12 +1102,25 @@ export class SuperKennethEngine {
           this.overlaps(proj, boss)
         ) {
           this.damageBoss(proj.damage);
-          if (proj.kind === 'shockwave') proj.life = 0;
+          if (proj.kind === 'shockwave' || isBoat) proj.life = 0;
         }
       } else {
-        // Enemy / Boss projectile vs Player
         if (this.overlaps(proj, p)) {
-          this.damagePlayer(proj.damage, false);
+          if (p.isShielding) {
+            soundEngine.checkpoint();
+            this.addParticles(
+              p.x + p.w / 2,
+              p.y + p.h / 2,
+              '#38bdf8',
+              12,
+              5,
+              0.1,
+              true
+            );
+            this.addText(p.x, p.y - 16, this.t().floatShieldBlock, '#38bdf8');
+          } else {
+            this.damagePlayer(proj.damage, false);
+          }
           this.projectiles.splice(i, 1);
           continue;
         }
@@ -863,7 +1137,7 @@ export class SuperKennethEngine {
     e.hitFlash = 10;
     if (e.hp <= 0) {
       e.alive = false;
-      e.squashTimer = e.kind === 'bat' ? 0 : 22;
+      e.squashTimer = e.kind === 'bat' || e.kind === 'sky_drone' ? 0 : 22;
       this.score += 200;
       soundEngine.enemyHit();
       this.addParticles(e.x + e.w / 2, e.y + e.h / 2, '#facc15', 12, 6);
@@ -890,18 +1164,14 @@ export class SuperKennethEngine {
         continue;
       }
       if (e.hitFlash > 0) e.hitFlash--;
-
-      // Only update enemies near camera
-      if (e.x < this.cameraX - 240 || e.x > this.cameraX + GAME_W + 240) {
-        continue;
-      }
+      if (e.x < this.cameraX - 240 || e.x > this.cameraX + GAME_W + 240) continue;
 
       if (activeAtk && e.hitFlash <= 0 && this.overlaps(activeAtk, e)) {
         this.damageEnemy(e, meleeDmg);
         if (!e.alive) continue;
       }
 
-      if (e.kind === 'bat') {
+      if (e.kind === 'bat' || e.kind === 'sky_drone') {
         e.x += e.vx;
         e.y = e.baseY + Math.sin(this.tick * 0.06 + e.phase) * 38;
         if (
@@ -942,7 +1212,6 @@ export class SuperKennethEngine {
         }
       }
 
-      // Player vs Enemy
       if (this.overlaps(p, e)) {
         const stomped = p.vy > 0 && p.y + p.h - p.vy <= e.y + e.h * 0.58;
         if (stomped) {
@@ -978,14 +1247,14 @@ export class SuperKennethEngine {
     this.addText(
       boss.x + boss.w / 2 - 20,
       boss.y - 12,
-      `-${dmg} Treffer!`,
+      `-${dmg} ${this.t().floatHit}`,
       '#facc15'
     );
 
     if (boss.hp <= 0) {
       boss.defeated = true;
       boss.phaseState = 'DEFEATED';
-      this.score += 2500;
+      this.score += 3000;
       soundEngine.victory();
       this.addParticles(
         boss.x + boss.w / 2,
@@ -996,7 +1265,13 @@ export class SuperKennethEngine {
         0.15,
         true
       );
-      this.addText(boss.x, boss.y - 30, `${boss.name} besiegt!`, '#34d399');
+      const bName = this.lang === 'de' ? boss.nameDe : boss.nameEn;
+      this.addText(
+        boss.x,
+        boss.y - 30,
+        `${bName} ${this.t().floatBossDefeated}`,
+        '#34d399'
+      );
       this.levelFinishTimer = 85;
     }
     this.emitHud();
@@ -1011,7 +1286,13 @@ export class SuperKennethEngine {
       boss.phaseState = 'PATROL';
       boss.stateTimer = 70;
       soundEngine.bossWarn();
-      this.addText(boss.x - 40, boss.y - 32, `${boss.name} erscheint!`, '#fb7185');
+      const bName = this.lang === 'de' ? boss.nameDe : boss.nameEn;
+      this.addText(
+        boss.x - 40,
+        boss.y - 32,
+        `${bName} ${this.t().floatBossAppears}`,
+        '#fb7185'
+      );
       this.emitHud();
     }
 
@@ -1021,8 +1302,9 @@ export class SuperKennethEngine {
     if (boss.hitFlash > 0) boss.hitFlash--;
     if (boss.invulnTimer > 0) boss.invulnTimer--;
 
-    // Check Kenneth melee strike against Boss
-    if (p.attackTimer > 0 && boss.invulnTimer <= 0) {
+    const isBoat = this.level.theme.mode === 'topdown_boat';
+
+    if (!isBoat && p.attackTimer > 0 && boss.invulnTimer <= 0) {
       const atkBox = this.getAttackHitbox();
       if (this.overlaps(atkBox, boss)) {
         const meleeDmg = this.hasTool('sun_sword')
@@ -1041,10 +1323,8 @@ export class SuperKennethEngine {
     boss.stateTimer--;
 
     if (boss.kind === 'beetle_king') {
-      // Boss 1: König Stachelpanzer AI
       if (boss.phaseState === 'PATROL') {
-        const dir = boss.facingRight ? 1 : -1;
-        boss.vx = dir * 2.1;
+        boss.vx = (boss.facingRight ? 1 : -1) * 2.1;
         boss.x += boss.vx;
         if (boss.stateTimer <= 0) {
           boss.phaseState = 'TELEGRAPH';
@@ -1056,11 +1336,9 @@ export class SuperKennethEngine {
         if (boss.stateTimer <= 0) {
           boss.phaseState = 'ATTACK';
           if (boss.attackPattern === 0) {
-            // Roll Charge
             boss.vx = (boss.facingRight ? 1 : -1) * 7.8;
             boss.stateTimer = 55;
           } else {
-            // Leap Slam + Stone Wave
             boss.vy = -13.5;
             boss.vx = (boss.facingRight ? 1 : -1) * 4.2;
             boss.stateTimer = 60;
@@ -1077,7 +1355,6 @@ export class SuperKennethEngine {
           if (justLanded && boss.attackPattern === 1) {
             this.screenShake = 8;
             soundEngine.blockBreak();
-            // Launch two jumpable stone waves left & right
             [-6.5, 6.5].forEach((wv) => {
               this.projectiles.push({
                 id: this.nextProjId++,
@@ -1108,17 +1385,79 @@ export class SuperKennethEngine {
           boss.stateTimer = 75;
         }
       }
-    } else {
-      // Boss 2: Flammen-Drache Ignis AI
-      const hoverY = boss.floorY - boss.h - 75 + Math.sin(boss.animTick * 0.05) * 18;
+    } else if (boss.kind === 'ice_leviathan') {
+      // Top-Down River Boss! Patrols vertically on right side & fires ice waves / charges
       if (boss.phaseState === 'PATROL') {
-        const dir = boss.facingRight ? 1 : -1;
-        boss.vx = dir * 2.5;
+        boss.y += boss.vy;
+        if (boss.y < 110) boss.vy = Math.abs(boss.vy);
+        if (boss.y + boss.h > GAME_H - 110) boss.vy = -Math.abs(boss.vy);
+        boss.x += (boss.arenaMaxX - 180 - boss.x) * 0.08;
+        if (boss.stateTimer <= 0) {
+          boss.phaseState = 'TELEGRAPH';
+          boss.stateTimer = 38;
+          boss.attackPattern = (boss.attackPattern + 1) % 2;
+        }
+      } else if (boss.phaseState === 'TELEGRAPH') {
+        boss.y += ((p.y - 20) - boss.y) * 0.06;
+        if (boss.stateTimer <= 0) {
+          boss.phaseState = 'ATTACK';
+          if (boss.attackPattern === 0) {
+            [-1.8, 0, 1.8].forEach((vy) => {
+              this.projectiles.push({
+                id: this.nextProjId++,
+                fromPlayer: false,
+                kind: 'water_orb',
+                x: boss.x - 16,
+                y: boss.y + boss.h / 2 - 12,
+                w: 28,
+                h: 28,
+                vx: -7.2,
+                vy,
+                damage: 20,
+                life: 130,
+                maxLife: 130,
+                rotation: 0,
+              });
+            });
+            soundEngine.bossWarn();
+            boss.stateTimer = 46;
+          } else {
+            boss.vx = -8.2;
+            boss.stateTimer = 64;
+          }
+        }
+      } else if (boss.phaseState === 'ATTACK') {
+        if (boss.attackPattern === 1) {
+          boss.x += boss.vx;
+          if (boss.x < boss.arenaMinX + 180) {
+            boss.vx = 6.2;
+          }
+        }
+        if (boss.stateTimer <= 0) {
+          boss.phaseState = 'RECOVER';
+          boss.stateTimer = 45;
+          boss.vx = 0;
+        }
+      } else if (boss.phaseState === 'RECOVER') {
+        boss.x += (boss.arenaMaxX - 180 - boss.x) * 0.1;
+        if (boss.stateTimer <= 0) {
+          boss.phaseState = 'PATROL';
+          boss.stateTimer = 65;
+        }
+      }
+    } else {
+      // Lava Dragon Ignis & Storm Griffin Zephyr
+      const isGriffin = boss.kind === 'storm_griffin';
+      const hoverY =
+        boss.floorY - boss.h - 80 + Math.sin(boss.animTick * 0.055) * 20;
+
+      if (boss.phaseState === 'PATROL') {
+        boss.vx = (boss.facingRight ? 1 : -1) * (isGriffin ? 3.1 : 2.5);
         boss.x += boss.vx;
         boss.y += (hoverY - boss.y) * 0.08;
         if (boss.stateTimer <= 0) {
           boss.phaseState = 'TELEGRAPH';
-          boss.stateTimer = 42;
+          boss.stateTimer = 40;
           boss.vx = 0;
           boss.attackPattern = (boss.attackPattern + 1) % 2;
         }
@@ -1127,18 +1466,17 @@ export class SuperKennethEngine {
         if (boss.stateTimer <= 0) {
           boss.phaseState = 'ATTACK';
           if (boss.attackPattern === 0) {
-            // Fireball Breath at crouchable / jumpable height!
             const dir = boss.facingRight ? 1 : -1;
-            const fireY = boss.floorY - 62; // Crouch (36px tall) ducks cleanly underneath!
+            const projY = boss.floorY - 62;
             this.projectiles.push({
               id: this.nextProjId++,
               fromPlayer: false,
-              kind: 'fireball',
+              kind: isGriffin ? 'wind_blade' : 'fireball',
               x: boss.facingRight ? boss.x + boss.w - 10 : boss.x - 24,
-              y: fireY,
+              y: projY,
               w: 32,
               h: 26,
-              vx: dir * 7.2,
+              vx: dir * (isGriffin ? 8.2 : 7.2),
               vy: 0,
               damage: 25,
               life: 110,
@@ -1148,8 +1486,7 @@ export class SuperKennethEngine {
             soundEngine.bossWarn();
             boss.stateTimer = 48;
           } else {
-            // Swoop Dive across arena
-            boss.vx = (boss.facingRight ? 1 : -1) * 7.4;
+            boss.vx = (boss.facingRight ? 1 : -1) * (isGriffin ? 8.2 : 7.4);
             boss.vy = 5.5;
             boss.stateTimer = 60;
           }
@@ -1158,27 +1495,23 @@ export class SuperKennethEngine {
         if (boss.attackPattern === 1) {
           boss.x += boss.vx;
           boss.y = Math.min(boss.floorY - boss.h, boss.y + boss.vy);
-          if (boss.y + boss.h >= boss.floorY) {
-            boss.vy = -3.8;
-          }
+          if (boss.y + boss.h >= boss.floorY) boss.vy = -3.8;
         }
         if (boss.stateTimer <= 0) {
           boss.phaseState = 'RECOVER';
-          boss.stateTimer = 58;
+          boss.stateTimer = 56;
           boss.vx = 0;
           boss.vy = 0;
         }
       } else if (boss.phaseState === 'RECOVER') {
-        // Lands briefly so Kenneth can easily jump-stomp or combo!
         boss.y += (boss.floorY - boss.h - boss.y) * 0.12;
         if (boss.stateTimer <= 0) {
           boss.phaseState = 'PATROL';
-          boss.stateTimer = 75;
+          boss.stateTimer = 70;
         }
       }
     }
 
-    // Clamp Boss inside Arena
     if (boss.x < boss.arenaMinX + 16) {
       boss.x = boss.arenaMinX + 16;
       boss.vx = Math.abs(boss.vx);
@@ -1188,9 +1521,9 @@ export class SuperKennethEngine {
       boss.vx = -Math.abs(boss.vx);
     }
 
-    // Player vs Boss Collision (Stomp top or take damage)
     if (this.overlaps(p, boss)) {
-      const stomped = p.vy > 0 && p.y + p.h - p.vy <= boss.y + boss.h * 0.45;
+      const stomped =
+        !isBoat && p.vy > 0 && p.y + p.h - p.vy <= boss.y + boss.h * 0.45;
       if (stomped) {
         p.vy = -13.5;
         p.jumpsRemaining = 2;
@@ -1220,7 +1553,9 @@ export class SuperKennethEngine {
 
   public getHudSnapshot(): HudSnapshot {
     const boss = this.level.boss;
+    const theme = this.level.theme;
     return {
+      mode: theme.mode,
       lives: this.player.lives,
       maxLives: this.player.maxLives,
       healthStamina: Math.round(this.player.healthStamina),
@@ -1229,12 +1564,15 @@ export class SuperKennethEngine {
       maxToolEnergy: this.player.maxToolEnergy,
       coins: this.coins,
       score: this.score,
+      starsCollected: this.starsCollected,
+      totalStars: this.totalStars,
       levelIndex: this.levelIndex,
-      levelName: this.level.theme.name,
-      worldCode: this.level.theme.worldCode,
+      levelName: this.lang === 'de' ? theme.nameDe : theme.nameEn,
+      worldCode: this.lang === 'de' ? theme.worldCodeDe : theme.worldCodeEn,
       tools: [...this.player.tools],
+      isShielding: this.player.isShielding,
       bossActive: boss.active && !boss.defeated,
-      bossName: boss.name,
+      bossName: this.lang === 'de' ? boss.nameDe : boss.nameEn,
       bossHp: boss.hp,
       bossMaxHp: boss.maxHp,
       recentToolUnlock: this.recentToolUnlock,

@@ -39,11 +39,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       } else if (code === 'ArrowDown' || code === 'KeyS') {
         e.preventDefault();
         inputRef.current.down = true;
-      } else if (
-        code === 'Space' ||
-        code === 'ArrowUp' ||
-        code === 'KeyW'
-      ) {
+      } else if (code === 'ArrowUp' || code === 'KeyW') {
+        e.preventDefault();
+        inputRef.current.up = true;
+        if (!inputRef.current.jumpHeld) {
+          inputRef.current.jumpJustPressed = true;
+        }
+        inputRef.current.jumpHeld = true;
+      } else if (code === 'Space') {
         e.preventDefault();
         if (!inputRef.current.jumpHeld) {
           inputRef.current.jumpJustPressed = true;
@@ -65,6 +68,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (!e.repeat) {
           inputRef.current.toolJustPressed = true;
         }
+      } else if (code === 'KeyC' || code === 'KeyQ') {
+        e.preventDefault();
+        inputRef.current.shieldHeld = true;
       }
     };
 
@@ -76,12 +82,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         inputRef.current.right = false;
       } else if (code === 'ArrowDown' || code === 'KeyS') {
         inputRef.current.down = false;
-      } else if (
-        code === 'Space' ||
-        code === 'ArrowUp' ||
-        code === 'KeyW'
-      ) {
+      } else if (code === 'ArrowUp' || code === 'KeyW') {
+        inputRef.current.up = false;
         inputRef.current.jumpHeld = false;
+      } else if (code === 'Space') {
+        inputRef.current.jumpHeld = false;
+      } else if (code === 'KeyC' || code === 'KeyQ') {
+        inputRef.current.shieldHeld = false;
       }
     };
 

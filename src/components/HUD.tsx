@@ -3,40 +3,51 @@ import {
   Coins,
   Gamepad2,
   Heart,
+  Languages,
   Pause,
   Shield,
+  ShieldCheck,
   Sparkles,
+  Star,
   Sword,
   Volume2,
   VolumeX,
   Zap,
 } from 'lucide-react';
+import { Lang, TEXTS } from '../game/i18n';
 import { HudSnapshot, TOOLS_CATALOG, ToolId } from '../game/types';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HUDProps {
   hud: HudSnapshot;
+  lang: Lang;
   muted: boolean;
   showTouchControls: boolean;
+  onToggleLang: () => void;
   onToggleMute: () => void;
   onToggleTouch: () => void;
   onPause: () => void;
 }
 
 function ToolSlotIcon({ id }: { id: ToolId }) {
-  if (id === 'power_gloves') return <Shield className="w-4 h-4 text-orange-400" />;
-  if (id === 'star_boomerang') return <Sparkles className="w-4 h-4 text-yellow-400" />;
-  if (id === 'turbo_boots') return <Zap className="w-4 h-4 text-cyan-400" />;
-  return <Sword className="w-4 h-4 text-amber-300" />;
+  if (id === 'power_gloves') return <Zap className="w-3.5 h-3.5 text-orange-400" />;
+  if (id === 'star_boomerang') return <Sparkles className="w-3.5 h-3.5 text-yellow-400" />;
+  if (id === 'turbo_boots') return <Zap className="w-3.5 h-3.5 text-cyan-400" />;
+  if (id === 'aegis_shield') return <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />;
+  return <Sword className="w-3.5 h-3.5 text-amber-300" />;
 }
 
 export const HUD: React.FC<HUDProps> = ({
   hud,
+  lang,
   muted,
   showTouchControls,
+  onToggleLang,
   onToggleMute,
   onToggleTouch,
   onPause,
 }) => {
+  const t = TEXTS[lang];
   const hpPct = Math.max(
     0,
     Math.min(100, (hud.healthStamina / hud.maxHealthStamina) * 100)
@@ -48,36 +59,39 @@ export const HUD: React.FC<HUDProps> = ({
     'power_gloves',
     'star_boomerang',
     'turbo_boots',
+    'aegis_shield',
     'sun_sword',
   ];
 
   return (
-    <header className="w-full bg-slate-900/95 border-b border-slate-700/80 px-4 py-2.5 flex items-center justify-between gap-4 shrink-0 z-20">
+    <header className="w-full bg-slate-900/95 border-b border-slate-700/80 px-2.5 sm:px-4 py-2 flex items-center justify-between gap-2 sm:gap-4 shrink-0 z-20">
       {/* Left: Hero Lives + Health-Stamina */}
-      <div className="flex items-center gap-5 min-w-0">
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-red-600 border border-amber-400 flex items-center justify-center font-display font-bold text-amber-300 text-sm shadow-sm">
+      <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-red-600 border border-amber-400 flex items-center justify-center font-display font-bold text-amber-300 text-xs sm:text-sm shadow-sm">
             K
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="text-xs text-slate-400 font-semibold">Leben</span>
-            <div className="flex items-center gap-1.5">
-              <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-              <span className="font-mono-num font-bold text-base text-white">
+            <span className="text-[10px] sm:text-xs text-slate-400 font-semibold">
+              {t.lives}
+            </span>
+            <div className="flex items-center gap-1">
+              <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
+              <span className="font-mono-num font-bold text-xs sm:text-sm text-white">
                 {hud.lives}/{hud.maxLives}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-1 min-w-[140px] sm:min-w-[180px]">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-300 font-semibold">Energie (Ausdauer)</span>
+        <div className="flex flex-col gap-0.5 min-w-[96px] sm:min-w-[155px]">
+          <div className="flex items-center justify-between text-[10px] sm:text-xs">
+            <span className="text-slate-300 font-semibold">{t.energy}</span>
             <span className="font-mono-num font-bold text-white">
               {hud.healthStamina}/{hud.maxHealthStamina}
             </span>
           </div>
-          <div className="w-full h-3 bg-slate-800 rounded-md overflow-hidden border border-slate-700">
+          <div className="w-full h-2.5 sm:h-3 bg-slate-800 rounded-md overflow-hidden border border-slate-700">
             <div
               className={`h-full ${hpColor} transition-transform duration-150 origin-left`}
               style={{ width: `${hpPct}%` }}
@@ -86,63 +100,82 @@ export const HUD: React.FC<HUDProps> = ({
         </div>
       </div>
 
-      {/* Center: World & Tools */}
-      <div className="hidden lg:flex items-center gap-6">
+      {/* Center: World, Stars & Tools (Desktop) */}
+      <div className="hidden xl:flex items-center gap-5">
         <div className="text-sm text-slate-200 whitespace-nowrap">
           <span className="font-display font-bold text-amber-300">
             {hud.worldCode}
           </span>
-          <span className="mx-2 text-slate-500">·</span>
+          <span className="mx-1.5 text-slate-500">·</span>
           <span className="font-semibold">{hud.levelName}</span>
         </div>
 
-        <div className="flex items-center gap-2" aria-label="Werkzeuge">
+        <div className="flex items-center gap-1.5" aria-label="Tools">
           {allTools.map((toolId) => {
             const unlocked = hud.tools.includes(toolId);
             const info = TOOLS_CATALOG[toolId];
+            const label = lang === 'de' ? info.shortDe : info.shortEn;
+            const desc = lang === 'de' ? info.descDe : info.descEn;
+            const name = lang === 'de' ? info.nameDe : info.nameEn;
             return (
               <div
                 key={toolId}
-                title={unlocked ? `${info.name}: ${info.description}` : 'Noch nicht gefunden'}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-semibold transition-colors ${
+                title={unlocked ? `${name}: ${desc}` : name}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-semibold transition-colors ${
                   unlocked
                     ? 'bg-slate-800 border-amber-400/60 text-slate-100'
                     : 'bg-slate-900/60 border-slate-800 text-slate-600'
                 }`}
               >
                 <ToolSlotIcon id={toolId} />
-                <span className="whitespace-nowrap">{info.shortName}</span>
+                <span className="whitespace-nowrap">{label}</span>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Right: Coins, Score & Actions */}
-      <div className="flex items-center gap-4 shrink-0">
-        <div className="flex items-center gap-3 text-sm">
-          <div className="flex items-center gap-1.5">
-            <Coins className="w-4 h-4 text-amber-400" />
+      {/* Right: Coins, Stars, Score & Controls */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm">
+          <div className="flex items-center gap-1">
+            <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
             <span className="font-mono-num font-bold text-amber-300">
               {String(hud.coins).padStart(2, '0')}
             </span>
           </div>
-          <span className="text-slate-600">·</span>
-          <div className="hidden sm:flex items-center gap-1.5">
-            <span className="text-slate-400 text-xs font-semibold">Punkte</span>
+          <div className="hidden sm:flex items-center gap-1">
+            <Star className="w-3.5 h-3.5 text-yellow-300 fill-yellow-300" />
+            <span className="font-mono-num font-bold text-yellow-200">
+              {hud.starsCollected}/{hud.totalStars}
+            </span>
+          </div>
+          <div className="hidden md:flex items-center gap-1">
+            <span className="text-slate-400 text-xs font-semibold">{t.points}</span>
             <span className="font-mono-num font-bold text-white">
               {String(hud.score).padStart(5, '0')}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          <div className="hidden sm:block">
+            <PWAInstallButton lang={lang} compact />
+          </div>
+          <button
+            type="button"
+            onClick={onToggleLang}
+            title="Sprache wechseln / Switch Language"
+            className="px-2 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+          >
+            <Languages className="w-3.5 h-3.5 text-sky-400" />
+            <span>{lang.toUpperCase()}</span>
+          </button>
           <button
             type="button"
             onClick={onToggleTouch}
-            title="Touch-Tasten ein-/ausblenden"
-            aria-label="Touch-Tasten ein- oder ausblenden"
-            className={`p-2 rounded-lg border text-sm transition-colors cursor-pointer ${
+            aria-label="Touch-Tasten"
+            className={`p-1.5 sm:p-2 rounded-lg border text-sm transition-colors cursor-pointer ${
               showTouchControls
                 ? 'bg-indigo-600 border-indigo-400 text-white'
                 : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
@@ -153,21 +186,19 @@ export const HUD: React.FC<HUDProps> = ({
           <button
             type="button"
             onClick={onToggleMute}
-            title={muted ? 'Ton einschalten' : 'Ton ausschalten'}
-            aria-label={muted ? 'Ton einschalten' : 'Ton ausschalten'}
-            className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 transition-colors cursor-pointer"
+            aria-label="Ton"
+            className="p-1.5 sm:p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 transition-colors cursor-pointer"
           >
             {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
           <button
             type="button"
             onClick={onPause}
-            title="Pause"
-            aria-label="Spiel pausieren"
-            className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+            aria-label={t.pause}
+            className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 hover:bg-slate-700 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
           >
             <Pause className="w-3.5 h-3.5" />
-            <span>Pause</span>
+            <span className="hidden sm:inline">{t.pause}</span>
           </button>
         </div>
       </div>

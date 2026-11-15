@@ -1,23 +1,30 @@
 export type GameScreenState =
   | 'TITLE_MENU'
   | 'WORLD_MAP'
+  | 'CHANGELOG'
   | 'PLAYING'
   | 'PAUSED'
   | 'LEVEL_CLEAR'
   | 'GAME_OVER'
   | 'VICTORY';
 
+export type GameMode = 'platformer' | 'topdown_boat';
+
 export type ToolId =
   | 'power_gloves'
   | 'star_boomerang'
   | 'turbo_boots'
+  | 'aegis_shield'
   | 'sun_sword';
 
 export interface ToolInfo {
   id: ToolId;
-  name: string;
-  shortName: string;
-  description: string;
+  nameDe: string;
+  nameEn: string;
+  shortDe: string;
+  shortEn: string;
+  descDe: string;
+  descEn: string;
   keyHint: string;
   color: string;
 }
@@ -25,33 +32,56 @@ export interface ToolInfo {
 export const TOOLS_CATALOG: Record<ToolId, ToolInfo> = {
   power_gloves: {
     id: 'power_gloves',
-    name: 'Kraft-Handschuhe',
-    shortName: 'Kraft',
-    description: 'Doppelte Schlagkraft und zerschmettert rissige Felsblöcke!',
+    nameDe: 'Kraft-Handschuhe',
+    nameEn: 'Power Gloves',
+    shortDe: 'Kraft',
+    shortEn: 'Power',
+    descDe: 'Doppelte Schlagkraft und zerschmettert rissige Felsblöcke!',
+    descEn: 'Double punch damage and smashes cracked boulders!',
     keyHint: 'X',
     color: '#f97316',
   },
   star_boomerang: {
     id: 'star_boomerang',
-    name: 'Sternen-Bumerang',
-    shortName: 'Bumerang',
-    description: 'Wirf einen magischen Bumerang, der Gegner trifft und Münzen sammelt!',
+    nameDe: 'Sternen-Bumerang',
+    nameEn: 'Star Boomerang',
+    shortDe: 'Bumerang',
+    shortEn: 'Boomerang',
+    descDe: 'Fliegt voraus, trifft Gegner und sammelt Münzen ein!',
+    descEn: 'Flies forward, hits enemies, and grabs coins!',
     keyHint: 'E',
     color: '#eab308',
   },
   turbo_boots: {
     id: 'turbo_boots',
-    name: 'Turbo-Stiefel',
-    shortName: 'Turbo',
-    description: 'Schnelleres Rennen, höheres Springen und leuchtender Speed-Schweif!',
+    nameDe: 'Turbo-Stiefel',
+    nameEn: 'Turbo Boots',
+    shortDe: 'Turbo',
+    shortEn: 'Turbo',
+    descDe: 'Schnelleres Rennen, höheres Springen & schnelleres Boot!',
+    descEn: 'Faster running, higher jumps, and faster boat speed!',
     keyHint: 'Passiv',
     color: '#06b6d4',
   },
+  aegis_shield: {
+    id: 'aegis_shield',
+    nameDe: 'Aegis-Schild',
+    nameEn: 'Aegis Shield',
+    shortDe: 'Schild',
+    shortEn: 'Shield',
+    descDe: 'Blockt feindliche Geschosse und schützt vor Schaden!',
+    descEn: 'Blocks enemy projectiles and protects from hits!',
+    keyHint: 'C / Q',
+    color: '#38bdf8',
+  },
   sun_sword: {
     id: 'sun_sword',
-    name: 'Sonnen-Klinge',
-    shortName: 'Schwert',
-    description: 'Verstärkt deinen Schlag mit einer goldenen Lichtklinge!',
+    nameDe: 'Sonnen-Klinge',
+    nameEn: 'Sun Blade',
+    shortDe: 'Schwert',
+    shortEn: 'Blade',
+    descDe: 'Verstärkt deinen Schlag mit einer goldenen Lichtklinge!',
+    descEn: 'Upgrades your punch with a radiant golden light blade!',
     keyHint: 'X',
     color: '#facc15',
   },
@@ -67,6 +97,7 @@ export type TileKind =
   | 'used'
   | 'bridge'
   | 'crystal'
+  | 'cloud'
   | 'lava'
   | 'spring';
 
@@ -99,7 +130,7 @@ export interface MovingPlatform {
   dy: number;
 }
 
-export type CollectibleKind = 'coin' | 'gem' | 'heart' | 'apple' | 'chest';
+export type CollectibleKind = 'coin' | 'gem' | 'heart' | 'apple' | 'chest' | 'super_star';
 
 export interface Collectible {
   id: number;
@@ -119,7 +150,7 @@ export interface Checkpoint {
   activated: boolean;
 }
 
-export type EnemyKind = 'shroom' | 'beetle' | 'bat' | 'slime';
+export type EnemyKind = 'shroom' | 'beetle' | 'bat' | 'slime' | 'sky_drone';
 
 export interface Enemy {
   id: number;
@@ -141,7 +172,24 @@ export interface Enemy {
   squashTimer: number;
 }
 
-export type BossKind = 'beetle_king' | 'lava_dragon';
+export type BoatObstacleKind = 'rock' | 'iceberg' | 'whirlpool' | 'mine' | 'crate' | 'heart_crate';
+
+export interface BoatObstacle {
+  id: number;
+  kind: BoatObstacleKind;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  vx: number;
+  vy: number;
+  hp: number;
+  alive: boolean;
+  hitFlash: number;
+  phase: number;
+}
+
+export type BossKind = 'beetle_king' | 'lava_dragon' | 'ice_leviathan' | 'storm_griffin';
 
 export type BossPhaseState =
   | 'IDLE'
@@ -153,8 +201,10 @@ export type BossPhaseState =
 
 export interface Boss {
   kind: BossKind;
-  name: string;
-  subtitle: string;
+  nameDe: string;
+  nameEn: string;
+  subtitleDe: string;
+  subtitleEn: string;
   x: number;
   y: number;
   w: number;
@@ -180,7 +230,7 @@ export interface Boss {
 export interface Projectile {
   id: number;
   fromPlayer: boolean;
-  kind: 'boomerang' | 'shockwave' | 'fireball' | 'stone_wave';
+  kind: 'boomerang' | 'shockwave' | 'fireball' | 'stone_wave' | 'water_orb' | 'wind_blade';
   x: number;
   y: number;
   w: number;
@@ -227,6 +277,7 @@ export interface Player {
   onGround: boolean;
   jumpsRemaining: number;
   isCrouching: boolean;
+  isShielding: boolean;
   attackTimer: number;
   attackCooldown: number;
   boomerangCooldown: number;
@@ -237,6 +288,8 @@ export interface Player {
   jumpBufferTimer: number;
   safeX: number;
   safeY: number;
+  checkpointX: number;
+  checkpointY: number;
   healthStamina: number;
   maxHealthStamina: number;
   toolEnergy: number;
@@ -249,25 +302,31 @@ export interface Player {
 export interface InputState {
   left: boolean;
   right: boolean;
+  up: boolean;
   down: boolean;
   jumpHeld: boolean;
   jumpJustPressed: boolean;
   attackJustPressed: boolean;
   toolJustPressed: boolean;
+  shieldHeld: boolean;
 }
 
 export interface LevelTheme {
   id: number;
-  worldCode: string;
-  name: string;
-  subtitle: string;
+  mode: GameMode;
+  worldCodeDe: string;
+  worldCodeEn: string;
+  nameDe: string;
+  nameEn: string;
+  subtitleDe: string;
+  subtitleEn: string;
   skyTop: string;
   skyMid: string;
   skyBottom: string;
   farHillColor: string;
   nearHillColor: string;
   accentColor: string;
-  isCavern: boolean;
+  backdropStyle: 'meadow' | 'cavern' | 'river' | 'sky';
 }
 
 export interface LevelDefinition {
@@ -282,10 +341,12 @@ export interface LevelDefinition {
   collectibles: Collectible[];
   checkpoints: Checkpoint[];
   enemies: Enemy[];
+  boatObstacles: BoatObstacle[];
   boss: Boss;
 }
 
 export interface HudSnapshot {
+  mode: GameMode;
   lives: number;
   maxLives: number;
   healthStamina: number;
@@ -294,10 +355,13 @@ export interface HudSnapshot {
   maxToolEnergy: number;
   coins: number;
   score: number;
+  starsCollected: number;
+  totalStars: number;
   levelIndex: number;
   levelName: string;
   worldCode: string;
   tools: ToolId[];
+  isShielding: boolean;
   bossActive: boolean;
   bossName: string;
   bossHp: number;
