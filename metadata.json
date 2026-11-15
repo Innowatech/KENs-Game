@@ -1,0 +1,6 @@
+{
+  "name": "Super-Kenneth",
+  "description": "Ein hochauflösendes Jump & Run Abenteuer mit Super-Kenneth, 10 Leben, Health-Stamina, Werkzeugen und Endgegnern.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

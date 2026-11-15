@@ -1,0 +1,1986 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#181828">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Super Kenneth">
+    <title>SUPER KENNETH – Retro Jump & Run</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: #181828;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            color: #ffffff;
+        }
+
+        #app-container {
+            width: 100%;
+            max-width: 960px;
+            height: 100%;
+            max-height: 660px;
+            display: flex;
+            flex-direction: column;
+            background-color: #5c94fc;
+            border: 4px solid #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+            position: relative;
+        }
+
+        /* Top HUD Bar */
+        #hud {
+            width: 100%;
+            padding: 8px 14px;
+            background: rgba(0, 0, 0, 0.45);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            font-weight: 900;
+            font-size: clamp(12px, 2vw, 17px);
+            letter-spacing: 1px;
+            text-shadow: 2px 2px 0 #000000;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .hud-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .hud-label {
+            color: #fbd000;
+            font-size: 0.7em;
+        }
+
+        .hud-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .top-btn {
+            color: #ffffff;
+            border: 3px solid #ffffff;
+            border-radius: 10px;
+            padding: 7px 11px;
+            font-family: inherit;
+            font-weight: 900;
+            font-size: clamp(10px, 1.6vw, 13px);
+            cursor: pointer;
+            text-shadow: 1px 1px 0 #000;
+        }
+
+        #restart-btn {
+            background: linear-gradient(180deg, #ff5252 0%, #c62828 100%);
+            box-shadow: 0 4px 0 #7f0000;
+        }
+
+        #restart-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #7f0000;
+        }
+
+        #install-btn {
+            background: linear-gradient(180deg, #10b981 0%, #047857 100%);
+            box-shadow: 0 4px 0 #064e3b;
+        }
+
+        #install-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #064e3b;
+        }
+
+        /* Game Canvas Area */
+        #canvas-wrapper {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            overflow: hidden;
+            background-color: #5c94fc;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            outline: none;
+        }
+
+        /* Non-blocking Start Title Banner (fades out automatically or on first move) */
+        #title-splash {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(24, 24, 40, 0.88);
+            border: 3px solid #fbd000;
+            border-radius: 14px;
+            padding: 10px 22px;
+            text-align: center;
+            pointer-events: none;
+            z-index: 12;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+            transition: opacity 0.45s ease;
+        }
+
+        #title-splash h1 {
+            color: #fbd000;
+            font-size: clamp(18px, 3.6vw, 28px);
+            letter-spacing: 2px;
+            text-shadow: 3px 3px 0 #c62828;
+        }
+
+        #title-splash p {
+            color: #e0f2fe;
+            font-size: clamp(11px, 1.8vw, 13px);
+            margin-top: 4px;
+            font-weight: bold;
+        }
+
+        /* Modal Banner for Level Clear / Game Over / PWA Info */
+        #status-banner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(24, 24, 40, 0.94);
+            border: 4px solid #fbd000;
+            border-radius: 16px;
+            padding: 20px 26px;
+            text-align: center;
+            z-index: 25;
+            display: none;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.75);
+            min-width: 280px;
+            max-width: 90%;
+        }
+
+        #status-banner h2 {
+            color: #fbd000;
+            font-size: clamp(18px, 3.4vw, 26px);
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        #status-banner p {
+            font-size: clamp(12px, 2vw, 15px);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        #banner-action-btn {
+            background: linear-gradient(180deg, #4caf50 0%, #2e7d32 100%);
+            color: #ffffff;
+            border: 3px solid #ffffff;
+            border-radius: 10px;
+            padding: 12px 22px;
+            font-family: inherit;
+            font-weight: 900;
+            font-size: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #1b5e20;
+        }
+
+        #banner-action-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #1b5e20;
+        }
+
+        /* Bottom Control Bar */
+        #controls-bar {
+            width: 100%;
+            padding: 10px 14px;
+            background: #222236;
+            border-top: 4px solid #ffffff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+            z-index: 15;
+        }
+
+        .dpad-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .ctrl-btn {
+            border: 3px solid #ffffff;
+            border-radius: 13px;
+            font-family: inherit;
+            font-weight: 900;
+            color: #ffffff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.05s, filter 0.05s;
+        }
+
+        .dir-btn {
+            width: clamp(56px, 12vw, 76px);
+            height: clamp(50px, 10vw, 62px);
+            background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+            box-shadow: 0 5px 0 #1e3a8a;
+            font-size: clamp(20px, 3.8vw, 26px);
+        }
+
+        .punch-btn {
+            width: clamp(78px, 16vw, 106px);
+            height: clamp(50px, 10vw, 62px);
+            background: linear-gradient(180deg, #a855f7 0%, #6b21a8 100%);
+            box-shadow: 0 5px 0 #4c1d95;
+            font-size: clamp(12px, 2.2vw, 16px);
+        }
+
+        .crouch-btn {
+            width: clamp(78px, 16vw, 106px);
+            height: clamp(50px, 10vw, 62px);
+            background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%);
+            box-shadow: 0 5px 0 #78350f;
+            font-size: clamp(12px, 2.2vw, 16px);
+        }
+
+        .jump-btn {
+            width: clamp(92px, 19vw, 130px);
+            height: clamp(50px, 10vw, 62px);
+            background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
+            box-shadow: 0 5px 0 #7f1d1d;
+            font-size: clamp(13px, 2.4vw, 18px);
+        }
+
+        .action-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .ctrl-btn.pressed, .ctrl-btn:active {
+            transform: translateY(4px);
+            filter: brightness(1.2);
+            box-shadow: 0 1px 0 #000000;
+        }
+
+        .hint-text {
+            color: #a5b4fc;
+            font-size: 11px;
+            text-align: center;
+            line-height: 1.35;
+        }
+
+        @media (max-width: 720px) {
+            .hint-text {
+                display: none;
+            }
+            #app-container {
+                border-radius: 0;
+                border-width: 0;
+                max-height: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <!-- Top HUD -->
+    <div id="hud">
+        <div class="hud-group">
+            <span class="hud-label">LIVES</span>
+            <span id="lives-val">❤️❤️❤️❤️❤️</span>
+        </div>
+        <div class="hud-group">
+            <span class="hud-label">SCORE</span>
+            <span id="score-val">00000</span>
+        </div>
+        <div class="hud-group">
+            <span class="hud-label">COINS</span>
+            <span id="coins-val">00</span>
+        </div>
+        <div class="hud-group">
+            <span class="hud-label">STAGE</span>
+            <span id="stage-val">1-1</span>
+        </div>
+        <div class="hud-actions">
+            <button id="install-btn" class="top-btn" type="button">📲 PWA APP</button>
+            <button id="restart-btn" class="top-btn" type="button">↻ RESTART</button>
+        </div>
+    </div>
+
+    <!-- Game Canvas Area -->
+    <div id="canvas-wrapper">
+        <canvas id="gameCanvas" tabindex="0"></canvas>
+
+        <!-- Non-blocking Title Banner on Start -->
+        <div id="title-splash">
+            <h1>★ SUPER KENNETH ★</h1>
+            <p id="stage-subtitle">WORLD 1-1: GREEN HILLS</p>
+        </div>
+
+        <!-- Stage Clear / Game Over / PWA Install Info Modal -->
+        <div id="status-banner">
+            <h2 id="banner-title">STAGE CLEAR!</h2>
+            <p id="banner-text">Awesome job, Kenneth!</p>
+            <button id="banner-action-btn" type="button">▶ NEXT STAGE</button>
+        </div>
+    </div>
+
+    <!-- Bottom Touch / Mouse Controls -->
+    <div id="controls-bar">
+        <div class="dpad-group">
+            <button id="btn-left" class="ctrl-btn dir-btn" type="button" aria-label="Left">◀</button>
+            <button id="btn-right" class="ctrl-btn dir-btn" type="button" aria-label="Right">▶</button>
+        </div>
+
+        <div class="hint-text">
+            <strong>KEYS:</strong> Arrows/WASD = Move | Down/S = Crouch<br>
+            Space/Up = Double Jump | X / Shift / Enter = Punch
+        </div>
+
+        <div class="action-group">
+            <button id="btn-punch" class="ctrl-btn punch-btn" type="button" aria-label="Punch">PUNCH 👊</button>
+            <button id="btn-crouch" class="ctrl-btn crouch-btn" type="button" aria-label="Crouch">CROUCH ▼</button>
+            <button id="btn-jump" class="ctrl-btn jump-btn" type="button" aria-label="Jump">JUMP ▲</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    "use strict";
+
+    /**
+     * =========================================================================
+     * 0. PWA MANIFEST & INSTALL HANDLER (Generates App Icon & Manifest inline)
+     * =========================================================================
+     */
+    let deferredInstallPrompt = null;
+
+    function setupPWA() {
+        try {
+            // Draw a 192x192 retro pixel icon dynamically for the PWA manifest
+            const iconCanvas = document.createElement('canvas');
+            iconCanvas.width = 192;
+            iconCanvas.height = 192;
+            const ictx = iconCanvas.getContext('2d');
+            ictx.fillStyle = '#1d4ed8';
+            ictx.fillRect(0, 0, 192, 192);
+            ictx.fillStyle = '#e52521';
+            ictx.fillRect(24, 24, 144, 60);
+            ictx.fillStyle = '#fbd000';
+            ictx.font = 'bold 54px Courier New, monospace';
+            ictx.textAlign = 'center';
+            ictx.fillText('SK', 96, 145);
+
+            const iconUrl = iconCanvas.toDataURL('image/png');
+
+            const manifestObj = {
+                name: "Super Kenneth – Retro Adventure",
+                short_name: "Super Kenneth",
+                start_url: ".",
+                display: "standalone",
+                background_color: "#181828",
+                theme_color: "#181828",
+                orientation: "landscape",
+                icons: [
+                    { src: iconUrl, sizes: "192x192", type: "image/png" },
+                    { src: iconUrl, sizes: "512x512", type: "image/png" }
+                ]
+            };
+
+            const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: 'application/manifest+json' });
+            const manifestURL = URL.createObjectURL(manifestBlob);
+            const linkEl = document.createElement('link');
+            linkEl.rel = 'manifest';
+            linkEl.href = manifestURL;
+            document.head.appendChild(linkEl);
+        } catch (err) {
+            // Safe fallback if Blob URLs are restricted
+        }
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+    });
+
+    setupPWA();
+
+    /**
+     * =========================================================================
+     * 1. RETRO WEB AUDIO SYNTHESIZER
+     * =========================================================================
+     */
+    let audioCtx = null;
+
+    function unlockAudio() {
+        try {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    audioCtx = new AudioContextClass();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        } catch (err) {}
+    }
+
+    function playSound(type) {
+        try {
+            unlockAudio();
+            if (!audioCtx) return;
+
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'jump') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(190, now);
+                osc.frequency.exponentialRampToValueAtTime(580, now + 0.16);
+                gain.gain.setValueAtTime(0.09, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
+                osc.start(now);
+                osc.stop(now + 0.17);
+            } else if (type === 'doublejump') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(340, now);
+                osc.frequency.exponentialRampToValueAtTime(860, now + 0.18);
+                gain.gain.setValueAtTime(0.11, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
+                osc.start(now);
+                osc.stop(now + 0.19);
+            } else if (type === 'punch') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(420, now);
+                osc.frequency.exponentialRampToValueAtTime(110, now + 0.11);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                osc.start(now);
+                osc.stop(now + 0.12);
+            } else if (type === 'hit_enemy') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(160, now);
+                osc.frequency.exponentialRampToValueAtTime(520, now + 0.14);
+                gain.gain.setValueAtTime(0.13, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } else if (type === 'hurt') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(240, now);
+                osc.frequency.exponentialRampToValueAtTime(95, now + 0.25);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+                osc.start(now);
+                osc.stop(now + 0.26);
+            } else if (type === 'coin') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(988, now);
+                osc.frequency.setValueAtTime(1319, now + 0.06);
+                gain.gain.setValueAtTime(0.09, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+                osc.start(now);
+                osc.stop(now + 0.24);
+            } else if (type === 'stomp') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(85, now + 0.13);
+                gain.gain.setValueAtTime(0.11, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+                osc.start(now);
+                osc.stop(now + 0.14);
+            } else if (type === 'powerup') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(330, now);
+                osc.frequency.linearRampToValueAtTime(660, now + 0.15);
+                osc.frequency.linearRampToValueAtTime(990, now + 0.32);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
+                osc.start(now);
+                osc.stop(now + 0.34);
+            } else if (type === 'bump') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(130, now);
+                osc.frequency.exponentialRampToValueAtTime(60, now + 0.1);
+                gain.gain.setValueAtTime(0.14, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+                osc.start(now);
+                osc.stop(now + 0.11);
+            } else if (type === 'win') {
+                const notes = [523, 659, 784, 1046];
+                notes.forEach((freq, idx) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.type = 'square';
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    o.frequency.setValueAtTime(freq, now + idx * 0.11);
+                    g.gain.setValueAtTime(0.09, now + idx * 0.11);
+                    g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.11 + 0.18);
+                    o.start(now + idx * 0.11);
+                    o.stop(now + idx * 0.11 + 0.18);
+                });
+            }
+        } catch (err) {}
+    }
+
+    /**
+     * =========================================================================
+     * 2. PIXEL-ART SPRITES (Super Kenneth & Multiple Enemy Types)
+     * =========================================================================
+     */
+    const PALETTE = {
+        'R': '#e52521', // Red Cap / Shirt
+        'B': '#1d4ed8', // Blue Overalls
+        'Y': '#fbd000', // Gold Buttons
+        'F': '#ffbd88', // Skin
+        'H': '#6b3e11', // Hair / Boots / Brown
+        'W': '#ffffff', // White
+        'K': '#111111', // Black
+        'T': '#e8c187', // Tan
+        'G': '#16a34a', // Green Shell / Scales
+        'L': '#86efac', // Light Green
+        'P': '#9333ea', // Purple Winged Bat
+        'O': '#f97316'  // Orange Beak/Glow
+    };
+
+    const KENNETH_IDLE = [
+        ".....RRRRRR.......",
+        "....RRRRRRRRRRR...",
+        "....HHHHFFKF......",
+        "...HFHFFFFKKFF....",
+        "...HFHHFFFFFFF....",
+        "...HHHFFFFKKKK....",
+        ".....FFFFFFFF.....",
+        "....RRRBRRR.......",
+        "...RRRRBRBBRRR....",
+        "..RRRRRBBBBRRRR...",
+        ".FFFRRBYBBBYRRFFF.",
+        ".FFFFBBBBBBBBFFFF.",
+        ".FFF..BBBBBB..FFF.",
+        ".....BBBBBBBB.....",
+        "....BBBB..BBBB....",
+        "...HHHH....HHHH...",
+        "..HHHHH....HHHHH..",
+        "..HHHHH....HHHHH.."
+    ];
+
+    const KENNETH_RUN = [
+        ".....RRRRRR.......",
+        "....RRRRRRRRRRR...",
+        "....HHHHFFKF......",
+        "...HFHFFFFKKFF....",
+        "...HFHHFFFFFFF....",
+        "...HHHFFFFKKKK....",
+        ".....FFFFFFFF.....",
+        "...RRRRRBRR.......",
+        "..RRRRRRBBBRRR....",
+        ".FFF.RRBYBBBRRFFF.",
+        ".FFF..BBBBBBBB....",
+        ".....BBBB..BBBB...",
+        "...HHHH......HHHH.",
+        "..HHHHH......HHHHH",
+        "..HHHHH......HHHHH",
+        "..................",
+        "..................",
+        ".................."
+    ];
+
+    const KENNETH_JUMP = [
+        ".....RRRRRR...FFF.",
+        "....RRRRRRRRR.FFF.",
+        "....HHHHFFKF..FFF.",
+        "...HFHFFFFKKFF....",
+        "...HFHHFFFFFFF....",
+        "...HHHFFFFKKKK....",
+        ".....FFFFFFFF.....",
+        "...RRRRBRRRRR.....",
+        ".FFFRRRBBBBBR.....",
+        ".FFF.RRBYBBBR.....",
+        "......BBBBBBB.....",
+        ".....BBBB.BBBB....",
+        "...HHHH.....HHHH..",
+        "..HHHHH.....HHHHH.",
+        "..................",
+        "..................",
+        "..................",
+        ".................."
+    ];
+
+    const KENNETH_PUNCH = [
+        ".....RRRRRR.......",
+        "....RRRRRRRRRRR...",
+        "....HHHHFFKF......",
+        "...HFHFFFFKKFF....",
+        "...HFHHFFFFFFF....",
+        "...HHHFFFFKKKK....",
+        ".....FFFFFFFF.....",
+        "....RRRBRRRRR.....",
+        "...RRRRBBBBBRRFFFF",
+        "..RRRRRBYBBBRRFFFF",
+        ".FFFRRRBBBBBRRFFFF",
+        ".FFF..BBBBBBBB....",
+        ".....BBBB..BBBB...",
+        "....BBBB....BBBB..",
+        "...HHHH......HHHH.",
+        "..HHHHH......HHHHH",
+        "..................",
+        ".................."
+    ];
+
+    const KENNETH_CROUCH = [
+        ".....RRRRRR.......",
+        "....RRRRRRRRRRR...",
+        "....HHHHFFKF......",
+        "...HFHFFFFKKFF....",
+        "...HHHFFFFKKKK....",
+        "..RRRRRBBBBRRRR...",
+        ".FFFRRBYBBBYRRFFF.",
+        "..FFFBBBBBBBBFFF..",
+        "...HHHHH..HHHHH...",
+        "..HHHHHH..HHHHHH.."
+    ];
+
+    // Enemy Type 1: Walker (Mushroom)
+    const ENEMY_WALK_1 = [
+        "......HHHH......",
+        "....HHHHHHHH....",
+        "...HHHHHHHHHH...",
+        "..HHHHHHHHHHHH..",
+        ".HHHHWWHHHHWWHHH",
+        ".HHHHWKHHHHWKHHH",
+        "HHHHHWKHHHHWKHHH",
+        "HHHHHHHHHHHHHHHH",
+        "HHHHHHHHHHHHHHHH",
+        ".HHHHHHHHHHHHHH.",
+        "....TTTTTTTT....",
+        "...TTTTTTTTTT...",
+        "...TTTTTTTTTT...",
+        "....TTTTTTTT....",
+        "..KKKK....KKKK..",
+        ".KKKKKK..KKKKKK."
+    ];
+
+    const ENEMY_WALK_2 = [
+        "......HHHH......",
+        "....HHHHHHHH....",
+        "...HHHHHHHHHH...",
+        "..HHHHHHHHHHHH..",
+        ".HHHHWWHHHHWWHHH",
+        ".HHHHWKHHHHWKHHH",
+        "HHHHHWKHHHHWKHHH",
+        "HHHHHHHHHHHHHHHH",
+        "HHHHHHHHHHHHHHHH",
+        ".HHHHHHHHHHHHHH.",
+        "....TTTTTTTT....",
+        "...TTTTTTTTTT...",
+        "...TTTTTTTTTT...",
+        "....TTTTTTTT....",
+        "...KKKK..KKKK...",
+        "....KKKK..KKKK.."
+    ];
+
+    // Enemy Type 2: Armored Shell Beetle (Faster & Sturdy)
+    const ENEMY_BEETLE = [
+        "....GGGGGGGG....",
+        "..GGGGLLLLGGGG..",
+        ".GGGGLLGGLLGGGG.",
+        "GGGGGGGGGGGGGGGG",
+        "GGWWGGGGGGGGWWGG",
+        "GGWKGGGGGGGGWKGG",
+        "GGGGGGGGGGGGGGGG",
+        "KKKKKKKKKKKKKKKK",
+        ".TTTTTTTTTTTTTT.",
+        "..OOO......OOO..",
+        ".OOOO......OOOO.",
+        "................"
+    ];
+
+    // Enemy Type 3: Flying Sky Bat
+    const ENEMY_FLYER_1 = [
+        "PP............PP",
+        "PPPP..KKKK..PPPP",
+        "PPPPPKKKKKKPPPPP",
+        ".PPPPKKWWKKPPPP.",
+        "..PPPKKOOOKPPP..",
+        "....KKKKKKKK....",
+        ".....OO..OO.....",
+        "................"
+    ];
+
+    const ENEMY_FLYER_2 = [
+        "................",
+        "......KKKK......",
+        "....KKKKKKKK....",
+        ".PPPPKKWWKKPPPP.",
+        "PPPPPKKOOOKPPPPP",
+        "PP..KKKKKKKK..PP",
+        ".....OO..OO.....",
+        "................"
+    ];
+
+    function drawSprite(ctx, matrix, x, y, w, h, flipX) {
+        const rows = matrix.length;
+        const cols = matrix[0].length;
+        const pw = w / cols;
+        const ph = h / rows;
+
+        ctx.save();
+        if (flipX) {
+            ctx.translate(x + w, y);
+            ctx.scale(-1, 1);
+            x = 0;
+            y = 0;
+        }
+
+        for (let r = 0; r < rows; r++) {
+            const row = matrix[r];
+            for (let c = 0; c < cols; c++) {
+                const ch = row[c];
+                if (ch !== '.' && PALETTE[ch]) {
+                    ctx.fillStyle = PALETTE[ch];
+                    ctx.fillRect(
+                        Math.floor(x + c * pw),
+                        Math.floor(y + r * ph),
+                        Math.ceil(pw),
+                        Math.ceil(ph)
+                    );
+                }
+            }
+        }
+        ctx.restore();
+    }
+
+    /**
+     * =========================================================================
+     * 3. MULTI-STAGE LEVEL BLUEPRINTS (Huge Stage 1 & Stage 2)
+     * =========================================================================
+     * Legend:
+     * P = Kenneth Start
+     * G = Grass Ground, D = Dirt, S = Stone Building Block, B = Brick,
+     * ? = Coin Block, * = Power-Up Mushroom Block,
+     * { } [ ] = Green Pipe, C = Coin,
+     * E = Walker Enemy, K = Fast Beetle Enemy, V = Flying Bat Enemy,
+     * F = Goal Flagpole
+     */
+    const STAGES = [
+        {
+            number: "1-1",
+            name: "WORLD 1-1: GREEN HILLS",
+            skyTop: "#5c94fc",
+            skyBottom: "#93c5fd",
+            hillColor: "#00a800",
+            hillHighlight: "#50d010",
+            map: [
+                "................................................................................................................................................................................",
+                "........................................................................................................................................................................F.......",
+                "...........................................................................?........................................................C.C.C...............................|.......",
+                "..........................................................C.C.C............................................V......................SSSSSSS.............................|.......",
+                ".........................................?...............BBBBBBB.....................*...........................................SSSSSSSSS............................|.......",
+                "...........................................................................................................C.C..................SSSSSSSSSSS...........................|.......",
+                "...................C.C.C............................................V..............................K......BBBBB................SSSSSSSSSSSSS..........................|.......",
+                "...............?...B*B?B...................V......................................C.C............SSSSS.........................SSSSSSSSSSSSSSS........................|.......",
+                "....................................E................SSSS............{}..........BBBBB..........SSSSSSS.........{}............SSSSSSSSSSSSSSSSS................SS.....|.......",
+                ".....P.......BB.............{}.....BBBB.....{}......SSSSSS...........[]...........K............SSSSSSSSS........[]...........SSSSSSSSSSSSSSSSSSS..............SSS.....|.......",
+                "GGGGGGGGGGGGGGGGGGGGGGGGGGG.[]..GGGGGGGGGGGG[]..GGGGGGGGGGGGGGGG..GGG[]GGGGGGGGGGGGGGGGGGGG..GGGGGGGGGGGGGGGGGGG[]GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG..GGGGGGGGGGGGGGGGGGGGGGGGGGG",
+                "DDDDDDDDDDDDDDDDDDDDDDDDDDD.[]..DDDDDDDDDDDD[]..DDDDDDDDDDDDDDDD..DDD[]DDDDDDDDDDDDDDDDDDDD..DDDDDDDDDDDDDDDDDDD[]DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD..DDDDDDDDDDDDDDDDDDDDDDDDDDD"
+            ]
+        },
+        {
+            number: "1-2",
+            name: "WORLD 1-2: SUNSET TOWERS",
+            skyTop: "#1e1b4b",
+            skyBottom: "#c2410c",
+            hillColor: "#312e81",
+            hillHighlight: "#4338ca",
+            map: [
+                "...................................................................................................................................................................................",
+                "...........................................................................................................................................................................F.......",
+                "....................................................................................*....................................................C.C.C.............................|.......",
+                "....................................................C.C.C..........................SSS.........................V........................SSSSSSS............................|.......",
+                "....................................?..............SSSSSSS........................SSSSS................................................SSSSSSSSS...........................|.......",
+                "..................................................SSSSSSSSS............V.........SSSSSSS....................BB?BB......................SSSSSSSSSSS...........................|.......",
+                "....................C.C.C........................SSSSSSSSSSS....................SSSSSSSSS.............................................SSSSSSSSSSSSS..........................|.......",
+                "................?...B*B?B..........V............SSSSSSSSSSSSS........{}........SSSSSSSSSSS........K..................................SSSSSSSSSSSSSSS.........................|.......",
+                "...............................................SSSSSSSSSSSSSSS.......[].......SSSSSSSSSSSSS.....SSSSS...........{}..................SSSSSSSSSSSSSSSSS...............SSS.....|.......",
+                ".....P......K..............{}......E..........SSSSSSSSSSSSSSSSS......[]......SSSSSSSSSSSSSSS...SSSSSSS..........[].................SSSSSSSSSSSSSSSSSSS.............SSSS.....|.......",
+                "GGGGGGGGGGGGGGGGGGGGGGGGGG.[]..GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG..GG[]GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG..GGGG[]GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG..GGGGGGGGGGGGGGGGGGGG",
+                "DDDDDDDDDDDDDDDDDDDDDDDDDD.[]..DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD..DD[]DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD..DDDD[]DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD..DDDDDDDDDDDDDDDDDDDD"
+            ]
+        }
+    ];
+
+    /**
+     * =========================================================================
+     * 4. GAME STATE & VARIABLES
+     * =========================================================================
+     */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const GAME_W = 840;
+    const GAME_H = 432;
+    canvas.width = GAME_W;
+    canvas.height = GAME_H;
+
+    const TILE = 36;
+    const GRAVITY = 0.6;
+    const MAX_FALL = 13;
+
+    let currentStageIndex = 0;
+    let state = 'PLAYING'; // 'PLAYING', 'STAGE_CLEAR', 'GAMEOVER'
+    let lives = 5;
+    let score = 0;
+    let coins = 0;
+    let cameraX = 0;
+    let tick = 0;
+    let splashTimer = 180;
+    let bannerMode = 'NEXT_STAGE'; // 'NEXT_STAGE', 'RESTART_ALL', 'CLOSE_INFO'
+
+    let tiles = [];
+    let levelCoins = [];
+    let enemies = [];
+    let mushrooms = [];
+    let particles = [];
+    let popups = [];
+    let flag = { x: 0, y: 0, h: 0 };
+
+    const SIZE_CONFIG = {
+        normal: { w: 36, h: 48, crouchH: 28 },
+        big:    { w: 42, h: 60, crouchH: 34 }
+    };
+
+    const player = {
+        x: 90,
+        y: 200,
+        w: 36,
+        h: 48,
+        vx: 0,
+        vy: 0,
+        speed: 4.7,
+        jumpPower: -12.8,
+        doubleJumpPower: -11.5,
+        jumpsRemaining: 2,
+        onGround: false,
+        facingRight: true,
+        isBig: false,
+        isCrouching: false,
+        punchTimer: 0,
+        punchCooldown: 0,
+        invuln: 0,
+        animTimer: 0,
+        safeX: 90,
+        safeY: 200
+    };
+
+    const input = {
+        left: false,
+        right: false,
+        down: false,
+        jumpHeld: false,
+        jumpJustPressed: false,
+        punchJustPressed: false
+    };
+
+    /**
+     * =========================================================================
+     * 5. STAGE LOADING & RESET
+     * =========================================================================
+     */
+    function loadStage(stageIdx, keepStats) {
+        currentStageIndex = stageIdx;
+        const stageData = STAGES[currentStageIndex];
+
+        if (!keepStats) {
+            lives = 5;
+            score = 0;
+            coins = 0;
+            player.isBig = false;
+        }
+
+        tiles = [];
+        levelCoins = [];
+        enemies = [];
+        mushrooms = [];
+        particles = [];
+        popups = [];
+        cameraX = 0;
+        state = 'PLAYING';
+        splashTimer = 190;
+
+        document.getElementById('status-banner').style.display = 'none';
+        document.getElementById('stage-val').textContent = stageData.number;
+        document.getElementById('stage-subtitle').textContent = stageData.name;
+        const splash = document.getElementById('title-splash');
+        splash.style.opacity = '1';
+
+        updateHUD();
+
+        const cfg = player.isBig ? SIZE_CONFIG.big : SIZE_CONFIG.normal;
+        player.vx = 0;
+        player.vy = 0;
+        player.onGround = false;
+        player.facingRight = true;
+        player.isCrouching = false;
+        player.w = cfg.w;
+        player.h = cfg.h;
+        player.jumpsRemaining = 2;
+        player.punchTimer = 0;
+        player.punchCooldown = 0;
+        player.invuln = 0;
+
+        const mapRows = stageData.map;
+        const baseOffsetY = GAME_H - mapRows.length * TILE;
+
+        for (let r = 0; r < mapRows.length; r++) {
+            const rowStr = mapRows[r];
+            for (let c = 0; c < rowStr.length; c++) {
+                const ch = rowStr[c];
+                const x = c * TILE;
+                const y = baseOffsetY + r * TILE;
+
+                if (ch === 'P') {
+                    player.x = x;
+                    player.y = y - 16;
+                    player.safeX = player.x;
+                    player.safeY = player.y;
+                } else if (['G', 'D', 'S', 'B', '?', '*', '{', '}', '[', ']'].includes(ch)) {
+                    tiles.push({
+                        x, y,
+                        w: TILE,
+                        h: TILE,
+                        type: ch,
+                        used: false,
+                        bumpY: 0
+                    });
+                } else if (ch === 'C') {
+                    levelCoins.push({
+                        x: x + TILE * 0.25,
+                        y: y + TILE * 0.15,
+                        w: TILE * 0.5,
+                        h: TILE * 0.7,
+                        collected: false
+                    });
+                } else if (ch === 'E') {
+                    enemies.push({
+                        kind: 'walker',
+                        x, y: y + 2,
+                        w: 34, h: 34,
+                        vx: -1.35, vy: 0,
+                        baseY: y + 2,
+                        alive: true, flatTimer: 0
+                    });
+                } else if (ch === 'K') {
+                    enemies.push({
+                        kind: 'beetle',
+                        x, y: y + 6,
+                        w: 36, h: 30,
+                        vx: -2.2, vy: 0,
+                        baseY: y + 6,
+                        alive: true, flatTimer: 0
+                    });
+                } else if (ch === 'V') {
+                    enemies.push({
+                        kind: 'flyer',
+                        x, y: y,
+                        w: 36, h: 26,
+                        vx: -1.6, vy: 0,
+                        baseY: y,
+                        phase: c * 0.5,
+                        alive: true, flatTimer: 0
+                    });
+                } else if (ch === 'F') {
+                    flag = {
+                        x: x + TILE / 2 - 4,
+                        y: y,
+                        h: TILE * 9
+                    };
+                }
+            }
+        }
+
+        // Additional varied enemies across the long map
+        const extraPatrols = currentStageIndex === 0
+            ? [
+                { col: 21, kind: 'walker' },
+                { col: 44, kind: 'beetle' },
+                { col: 68, kind: 'walker' },
+                { col: 88, kind: 'beetle' },
+                { col: 118, kind: 'walker' },
+                { col: 152, kind: 'beetle' }
+              ]
+            : [
+                { col: 20, kind: 'beetle' },
+                { col: 38, kind: 'walker' },
+                { col: 64, kind: 'beetle' },
+                { col: 92, kind: 'walker' },
+                { col: 124, kind: 'beetle' },
+                { col: 156, kind: 'beetle' }
+              ];
+
+        extraPatrols.forEach(item => {
+            const isBeetle = item.kind === 'beetle';
+            enemies.push({
+                kind: item.kind,
+                x: item.col * TILE,
+                y: baseOffsetY + 9 * TILE + (isBeetle ? 6 : 2),
+                w: isBeetle ? 36 : 34,
+                h: isBeetle ? 30 : 34,
+                vx: isBeetle ? -2.2 : -1.35,
+                vy: 0,
+                baseY: baseOffsetY + 9 * TILE,
+                alive: true,
+                flatTimer: 0
+            });
+        });
+
+        focusGame();
+    }
+
+    function updateHUD() {
+        const hearts = lives > 0 ? '❤️'.repeat(lives) : '💔';
+        document.getElementById('lives-val').textContent = hearts;
+        document.getElementById('score-val').textContent = String(score).padStart(5, '0');
+        document.getElementById('coins-val').textContent = String(coins).padStart(2, '0');
+    }
+
+    function addPopup(x, y, text, color) {
+        popups.push({ x, y, text, color: color || '#ffffff', life: 45 });
+    }
+
+    function addParticles(x, y, color, count) {
+        for (let i = 0; i < count; i++) {
+            particles.push({
+                x, y,
+                vx: (Math.random() - 0.5) * 7.5,
+                vy: -Math.random() * 6 - 2,
+                size: 4 + Math.random() * 4,
+                color,
+                life: 28
+            });
+        }
+    }
+
+    function overlaps(a, b) {
+        return a.x < b.x + b.w &&
+               a.x + a.w > b.x &&
+               a.y < b.y + b.h &&
+               a.y + a.h > b.y;
+    }
+
+    function canStandUp() {
+        const cfg = player.isBig ? SIZE_CONFIG.big : SIZE_CONFIG.normal;
+        const standH = cfg.h;
+        const diff = standH - player.h;
+        if (diff <= 0) return true;
+
+        const testBox = {
+            x: player.x + 2,
+            y: player.y - diff,
+            w: player.w - 4,
+            h: standH
+        };
+
+        for (let i = 0; i < tiles.length; i++) {
+            if (overlaps(testBox, tiles[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function getPunchHitbox() {
+        const reach = 34;
+        return {
+            x: player.facingRight ? player.x + player.w - 4 : player.x - reach + 4,
+            y: player.y + 6,
+            w: reach,
+            h: player.h - 10
+        };
+    }
+
+    function loseLife(fromPit) {
+        lives = Math.max(0, lives - 1);
+        updateHUD();
+        playSound('hurt');
+
+        if (lives <= 0) {
+            showBanner(
+                'GAME OVER',
+                `Final Score: ${score} | Coins: ${coins} – Try again, Kenneth!`,
+                '▶ PLAY AGAIN',
+                'RESTART_ALL',
+                '#ff5252'
+            );
+            state = 'GAMEOVER';
+            return;
+        }
+
+        player.isBig = false;
+        player.isCrouching = false;
+        player.w = SIZE_CONFIG.normal.w;
+        player.h = SIZE_CONFIG.normal.h;
+        player.invuln = 95;
+        player.jumpsRemaining = 2;
+
+        if (fromPit) {
+            player.x = Math.max(cameraX + 20, player.safeX);
+            player.y = player.safeY - 24;
+            player.vx = 0;
+            player.vy = 0;
+            addParticles(player.x + player.w / 2, player.y + player.h / 2, '#ffffff', 12);
+            addPopup(player.x, player.y - 16, '-1 ❤️', '#ff5252');
+        } else {
+            player.vy = -7.5;
+            addPopup(player.x, player.y - 16, '-1 ❤️', '#ff5252');
+        }
+    }
+
+    /**
+     * =========================================================================
+     * 6. GAMEPLAY UPDATE LOOP
+     * =========================================================================
+     */
+    function hitBlockBelow(tile) {
+        tile.bumpY = -8;
+        if (tile.type === '?' && !tile.used) {
+            tile.used = true;
+            coins++;
+            score += 100;
+            updateHUD();
+            playSound('coin');
+            addParticles(tile.x + tile.w / 2, tile.y - 8, '#fbd000', 7);
+            addPopup(tile.x, tile.y - 14, '+100', '#fbd000');
+        } else if (tile.type === '*' && !tile.used) {
+            tile.used = true;
+            playSound('powerup');
+            mushrooms.push({
+                x: tile.x + 2,
+                y: tile.y - 32,
+                w: 32,
+                h: 32,
+                vx: 1.6,
+                vy: 0,
+                collected: false
+            });
+            addParticles(tile.x + tile.w / 2, tile.y - 8, '#ff5252', 8);
+        } else if (tile.type === 'B' && player.isBig) {
+            playSound('bump');
+            score += 50;
+            updateHUD();
+            addParticles(tile.x + tile.w / 2, tile.y + tile.h / 2, '#c84c0c', 10);
+            tiles = tiles.filter(t => t !== tile);
+        } else {
+            playSound('bump');
+        }
+    }
+
+    function updateGame() {
+        tick++;
+
+        if (splashTimer > 0) {
+            splashTimer--;
+            if (splashTimer === 0) {
+                document.getElementById('title-splash').style.opacity = '0';
+            }
+        }
+
+        // Tile bounce animations
+        for (let i = 0; i < tiles.length; i++) {
+            if (tiles[i].bumpY < 0) {
+                tiles[i].bumpY += 1.2;
+                if (tiles[i].bumpY > 0) tiles[i].bumpY = 0;
+            }
+        }
+
+        // Particles & Popups
+        particles.forEach(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.35;
+            p.life--;
+        });
+        particles = particles.filter(p => p.life > 0);
+
+        popups.forEach(p => {
+            p.y -= 0.9;
+            p.life--;
+        });
+        popups = popups.filter(p => p.life > 0);
+
+        if (state !== 'PLAYING') return;
+
+        if (player.invuln > 0) player.invuln--;
+        if (player.punchTimer > 0) player.punchTimer--;
+        if (player.punchCooldown > 0) player.punchCooldown--;
+
+        // Trigger Punch Attack
+        if (input.punchJustPressed && player.punchCooldown <= 0 && !player.isCrouching) {
+            player.punchTimer = 14;
+            player.punchCooldown = 20;
+            playSound('punch');
+
+            const punchBox = getPunchHitbox();
+            // Punch can also break bricks directly in front of Kenneth!
+            for (let i = tiles.length - 1; i >= 0; i--) {
+                const t = tiles[i];
+                if (t.type === 'B' && overlaps(punchBox, t)) {
+                    score += 50;
+                    updateHUD();
+                    playSound('bump');
+                    addParticles(t.x + t.w / 2, t.y + t.h / 2, '#c84c0c', 10);
+                    tiles.splice(i, 1);
+                } else if ((t.type === '?' || t.type === '*') && !t.used && overlaps(punchBox, t)) {
+                    hitBlockBelow(t);
+                }
+            }
+        }
+        input.punchJustPressed = false;
+
+        // Crouch / Stand up
+        const cfg = player.isBig ? SIZE_CONFIG.big : SIZE_CONFIG.normal;
+        if (input.down && player.onGround) {
+            if (!player.isCrouching) {
+                const heightDiff = player.h - cfg.crouchH;
+                player.y += heightDiff;
+                player.h = cfg.crouchH;
+                player.isCrouching = true;
+            }
+        } else if (player.isCrouching) {
+            if (canStandUp()) {
+                const heightDiff = cfg.h - player.h;
+                player.y -= heightDiff;
+                player.h = cfg.h;
+                player.isCrouching = false;
+            }
+        }
+
+        // Horizontal Movement
+        const currentMaxSpeed = player.isCrouching ? player.speed * 0.58 : player.speed;
+        if (input.left) {
+            player.vx = Math.max(player.vx - 0.62, -currentMaxSpeed);
+            player.facingRight = false;
+        } else if (input.right) {
+            player.vx = Math.min(player.vx + 0.62, currentMaxSpeed);
+            player.facingRight = true;
+        } else {
+            player.vx *= 0.78;
+            if (Math.abs(player.vx) < 0.1) player.vx = 0;
+        }
+
+        // Jump & Double Jump
+        if (input.jumpJustPressed) {
+            if (player.onGround) {
+                if (player.isCrouching && canStandUp()) {
+                    const heightDiff = cfg.h - player.h;
+                    player.y -= heightDiff;
+                    player.h = cfg.h;
+                    player.isCrouching = false;
+                }
+                player.vy = player.jumpPower;
+                player.onGround = false;
+                player.jumpsRemaining = 1;
+                playSound('jump');
+            } else if (player.jumpsRemaining > 0) {
+                player.vy = player.doubleJumpPower;
+                player.jumpsRemaining = 0;
+                playSound('doublejump');
+                addParticles(player.x + player.w / 2, player.y + player.h, '#ffffff', 10);
+                addPopup(player.x, player.y + player.h, 'DOUBLE!', '#e0f2fe');
+            }
+        }
+        if (!input.jumpHeld && player.vy < -4.5) {
+            player.vy *= 0.84;
+        }
+        input.jumpJustPressed = false;
+
+        // Gravity
+        player.vy = Math.min(player.vy + GRAVITY, MAX_FALL);
+
+        // X Collision
+        player.x += player.vx;
+        if (player.x < cameraX) {
+            player.x = cameraX;
+            player.vx = 0;
+        }
+        for (let i = 0; i < tiles.length; i++) {
+            const t = tiles[i];
+            if (overlaps(player, t)) {
+                if (player.vx > 0) player.x = t.x - player.w;
+                else if (player.vx < 0) player.x = t.x + t.w;
+                player.vx = 0;
+            }
+        }
+
+        // Y Collision
+        player.y += player.vy;
+        player.onGround = false;
+        for (let i = 0; i < tiles.length; i++) {
+            const t = tiles[i];
+            if (overlaps(player, t)) {
+                if (player.vy > 0) {
+                    player.y = t.y - player.h;
+                    player.vy = 0;
+                    player.onGround = true;
+                    player.jumpsRemaining = 2;
+
+                    if (['G', 'B', 'S', '{', '}'].includes(t.type)) {
+                        player.safeX = player.x;
+                        player.safeY = player.y;
+                    }
+                } else if (player.vy < 0) {
+                    player.y = t.y + t.h;
+                    player.vy = 1.5;
+                    hitBlockBelow(t);
+                }
+            }
+        }
+
+        if (Math.abs(player.vx) > 0.3 && player.onGround && !player.isCrouching) {
+            player.animTimer += 0.22;
+        } else {
+            player.animTimer = 0;
+        }
+
+        // Collect Coins
+        for (let i = 0; i < levelCoins.length; i++) {
+            const c = levelCoins[i];
+            if (!c.collected && overlaps(player, c)) {
+                c.collected = true;
+                coins++;
+                score += 100;
+                updateHUD();
+                playSound('coin');
+                addParticles(c.x + c.w / 2, c.y + c.h / 2, '#fbd000', 5);
+            }
+        }
+
+        // Update Mushrooms
+        for (let i = 0; i < mushrooms.length; i++) {
+            const m = mushrooms[i];
+            if (m.collected) continue;
+
+            m.vy = Math.min(m.vy + GRAVITY, MAX_FALL);
+            m.x += m.vx;
+            for (let j = 0; j < tiles.length; j++) {
+                const t = tiles[j];
+                if (overlaps(m, t)) {
+                    if (m.vx > 0) m.x = t.x - m.w;
+                    else m.x = t.x + t.w;
+                    m.vx *= -1;
+                }
+            }
+
+            m.y += m.vy;
+            for (let j = 0; j < tiles.length; j++) {
+                const t = tiles[j];
+                if (overlaps(m, t) && m.vy > 0) {
+                    m.y = t.y - m.h;
+                    m.vy = 0;
+                }
+            }
+
+            if (overlaps(player, m)) {
+                m.collected = true;
+                score += 500;
+                updateHUD();
+                playSound('powerup');
+                if (!player.isBig) {
+                    const oldH = player.h;
+                    player.isBig = true;
+                    player.isCrouching = false;
+                    player.w = SIZE_CONFIG.big.w;
+                    player.h = SIZE_CONFIG.big.h;
+                    player.y -= (player.h - oldH);
+                }
+                addPopup(player.x, player.y - 16, 'SUPER SIZE!', '#76ff03');
+            }
+        }
+
+        // Update Enemies & Punch Hit Detection
+        const activePunchBox = player.punchTimer > 0 ? getPunchHitbox() : null;
+
+        for (let i = 0; i < enemies.length; i++) {
+            const e = enemies[i];
+            if (!e.alive) {
+                if (e.flatTimer > 0) e.flatTimer--;
+                continue;
+            }
+            if (e.x > cameraX + GAME_W + 140) continue;
+
+            // Check if Kenneth punched this enemy!
+            if (activePunchBox && overlaps(activePunchBox, e)) {
+                e.alive = false;
+                e.flatTimer = 0;
+                score += 300;
+                updateHUD();
+                playSound('hit_enemy');
+                addParticles(e.x + e.w / 2, e.y + e.h / 2, '#fbd000', 14);
+                addPopup(e.x, e.y - 12, 'POW! +300', '#fbd000');
+                continue;
+            }
+
+            if (e.kind === 'flyer') {
+                // Flying bat oscillates smoothly in the air
+                e.x += e.vx;
+                e.y = e.baseY + Math.sin(tick * 0.06 + e.phase) * 34;
+            } else {
+                // Ground walker or fast beetle
+                e.vy = Math.min(e.vy + GRAVITY, MAX_FALL);
+                e.x += e.vx;
+                for (let j = 0; j < tiles.length; j++) {
+                    const t = tiles[j];
+                    if (overlaps(e, t)) {
+                        if (e.vx > 0) e.x = t.x - e.w;
+                        else e.x = t.x + t.w;
+                        e.vx *= -1;
+                    }
+                }
+
+                e.y += e.vy;
+                for (let j = 0; j < tiles.length; j++) {
+                    const t = tiles[j];
+                    if (overlaps(e, t) && e.vy > 0) {
+                        e.y = t.y - e.h;
+                        e.vy = 0;
+                    }
+                }
+            }
+
+            // Player vs Enemy collision
+            if (overlaps(player, e)) {
+                const stomped = player.vy > 0 && (player.y + player.h - player.vy) <= e.y + e.h * 0.65;
+                if (stomped) {
+                    e.alive = false;
+                    e.flatTimer = e.kind === 'flyer' ? 0 : 25;
+                    player.vy = -8.8;
+                    player.jumpsRemaining = 2;
+                    score += 200;
+                    updateHUD();
+                    playSound('stomp');
+                    addPopup(e.x, e.y - 10, '+200', '#ffffff');
+                } else if (player.invuln <= 0) {
+                    loseLife(false);
+                    if (state !== 'PLAYING') return;
+                }
+            }
+        }
+
+        // Pit fall check
+        if (player.y > GAME_H + 30) {
+            loseLife(true);
+            return;
+        }
+
+        // Goal Flagpole check
+        if (flag.x > 0 && player.x + player.w >= flag.x) {
+            score += 1000;
+            updateHUD();
+            playSound('win');
+            addParticles(flag.x, player.y, '#fbd000', 28);
+            state = 'STAGE_CLEAR';
+
+            if (currentStageIndex < STAGES.length - 1) {
+                showBanner(
+                    'STAGE 1-1 CLEAR!',
+                    `Great job, Kenneth! Score: ${score} | Coins: ${coins}\nReady for World 1-2: Sunset Towers?`,
+                    '▶ NEXT STAGE (1-2)',
+                    'NEXT_STAGE',
+                    '#76ff03'
+                );
+            } else {
+                showBanner(
+                    '🏆 CHAMPION KENNETH! 🏆',
+                    `You beat all worlds! Final Score: ${score} | Coins: ${coins}`,
+                    '▶ PLAY AGAIN',
+                    'RESTART_ALL',
+                    '#fbd000'
+                );
+            }
+            return;
+        }
+
+        // Camera follow
+        const desiredCam = player.x - GAME_W * 0.34;
+        if (desiredCam > cameraX) {
+            cameraX = desiredCam;
+        }
+    }
+
+    function showBanner(titleText, bodyText, buttonText, mode, titleColor) {
+        const banner = document.getElementById('status-banner');
+        const titleEl = document.getElementById('banner-title');
+        const bodyEl = document.getElementById('banner-text');
+        const btnEl = document.getElementById('banner-action-btn');
+
+        titleEl.textContent = titleText;
+        titleEl.style.color = titleColor || '#fbd000';
+        bodyEl.textContent = bodyText;
+        btnEl.textContent = buttonText;
+        bannerMode = mode;
+        banner.style.display = 'block';
+    }
+
+    /**
+     * =========================================================================
+     * 7. RETRO GRAPHICS RENDERER
+     * =========================================================================
+     */
+    function render() {
+        const stageData = STAGES[currentStageIndex];
+
+        // Sky Gradient per World
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, GAME_H);
+        skyGrad.addColorStop(0, stageData.skyTop);
+        skyGrad.addColorStop(1, stageData.skyBottom);
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, GAME_W, GAME_H);
+
+        // Parallax Hills / Buildings
+        for (let i = 0; i < 16; i++) {
+            const hx = i * 380 - (cameraX * 0.25) % 380;
+            const hy = GAME_H - 72;
+            ctx.fillStyle = stageData.hillColor;
+            ctx.beginPath();
+            ctx.arc(hx + 80, hy + 40, 75, Math.PI, 0);
+            ctx.fill();
+            ctx.fillStyle = stageData.hillHighlight;
+            ctx.beginPath();
+            ctx.arc(hx + 65, hy + 35, 42, Math.PI, 0);
+            ctx.fill();
+        }
+
+        // Clouds
+        for (let i = 0; i < 18; i++) {
+            const cx = i * 280 - (cameraX * 0.4) % 280 + 30;
+            const cy = 46 + (i % 3) * 32;
+            ctx.fillStyle = currentStageIndex === 0 ? '#ffffff' : 'rgba(255, 237, 213, 0.85)';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 15, 0, Math.PI * 2);
+            ctx.arc(cx + 18, cy - 6, 19, 0, Math.PI * 2);
+            ctx.arc(cx + 36, cy, 15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(cx, cy, 36, 15);
+        }
+
+        // Level Tiles
+        for (let i = 0; i < tiles.length; i++) {
+            const t = tiles[i];
+            const x = Math.floor(t.x - cameraX);
+            const y = Math.floor(t.y + t.bumpY);
+            const s = t.w;
+            if (x + s < 0 || x > GAME_W) continue;
+
+            if (t.type === 'G') {
+                ctx.fillStyle = '#c84c0c';
+                ctx.fillRect(x, y, s, s);
+                ctx.fillStyle = '#00a800';
+                ctx.fillRect(x, y, s, 10);
+                ctx.fillStyle = '#80d010';
+                ctx.fillRect(x, y, s, 4);
+            } else if (t.type === 'D') {
+                ctx.fillStyle = '#c84c0c';
+                ctx.fillRect(x, y, s, s);
+                ctx.fillStyle = '#fcbcb0';
+                ctx.fillRect(x + 5, y + 5, 6, 6);
+            } else if (t.type === 'S') {
+                // Hill / Fortress Stone Building Block
+                ctx.fillStyle = '#64748b';
+                ctx.fillRect(x, y, s, s);
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillRect(x + 2, y + 2, s - 4, 5);
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
+            } else if (t.type === 'B') {
+                ctx.fillStyle = '#c84c0c';
+                ctx.fillRect(x, y, s, s);
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
+                ctx.beginPath();
+                ctx.moveTo(x, y + s / 2);
+                ctx.lineTo(x + s, y + s / 2);
+                ctx.moveTo(x + s / 2, y);
+                ctx.lineTo(x + s / 2, y + s / 2);
+                ctx.stroke();
+            } else if (t.type === '?' || t.type === '*') {
+                if (t.used) {
+                    ctx.fillStyle = '#887000';
+                    ctx.fillRect(x, y, s, s);
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
+                } else {
+                    const blink = Math.floor(tick / 15) % 2 === 0;
+                    ctx.fillStyle = blink ? '#fbd000' : '#f89800';
+                    ctx.fillRect(x, y, s, s);
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 22px Courier New, monospace';
+                    ctx.fillText('?', x + 11, y + 26);
+                }
+            } else if (['{', '}', '[', ']'].includes(t.type)) {
+                ctx.fillStyle = '#00a800';
+                ctx.fillRect(x, y, s, s);
+                if (t.type === '{' || t.type === '[') {
+                    ctx.fillStyle = '#80d010';
+                    ctx.fillRect(x + 5, y, 7, s);
+                }
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, s, s);
+            }
+        }
+
+        // Coins
+        const spin = Math.abs(Math.cos(tick * 0.1));
+        for (let i = 0; i < levelCoins.length; i++) {
+            const c = levelCoins[i];
+            if (c.collected) continue;
+            const x = Math.floor(c.x - cameraX);
+            if (x + c.w < 0 || x > GAME_W) continue;
+            const cw = Math.max(4, c.w * spin);
+            ctx.fillStyle = '#fbd000';
+            ctx.fillRect(x + (c.w - cw) / 2, c.y, cw, c.h);
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x + (c.w - cw) / 2, c.y, cw, c.h);
+        }
+
+        // Power-Up Mushrooms
+        for (let i = 0; i < mushrooms.length; i++) {
+            const m = mushrooms[i];
+            if (m.collected) continue;
+            const mx = Math.floor(m.x - cameraX);
+            if (mx + m.w < 0 || mx > GAME_W) continue;
+            ctx.fillStyle = '#e52521';
+            ctx.beginPath();
+            ctx.arc(mx + m.w / 2, m.y + 16, 15, Math.PI, 0);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(mx + m.w / 2, m.y + 9, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffbd88';
+            ctx.fillRect(mx + 8, m.y + 16, 16, 14);
+        }
+
+        // Goal Flagpole & Fortress
+        if (flag.x > 0) {
+            const fx = Math.floor(flag.x - cameraX);
+            if (fx > -100 && fx < GAME_W + 250) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(fx, flag.y, 6, flag.h);
+                ctx.fillStyle = '#fbd000';
+                ctx.beginPath();
+                ctx.arc(fx + 3, flag.y, 9, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#00a800';
+                ctx.beginPath();
+                ctx.moveTo(fx, flag.y + 12);
+                ctx.lineTo(fx - 36, flag.y + 26);
+                ctx.lineTo(fx, flag.y + 40);
+                ctx.closePath();
+                ctx.fill();
+
+                const castleX = fx + 85;
+                const castleY = flag.y + flag.h - 90;
+                ctx.fillStyle = '#c84c0c';
+                ctx.fillRect(castleX, castleY, 90, 90);
+                ctx.fillStyle = '#111111';
+                ctx.fillRect(castleX + 32, castleY + 42, 26, 48);
+                for (let z = 0; z < 3; z++) {
+                    ctx.fillStyle = '#c84c0c';
+                    ctx.fillRect(castleX + z * 34, castleY - 14, 22, 14);
+                }
+            }
+        }
+
+        // Enemies
+        for (let i = 0; i < enemies.length; i++) {
+            const e = enemies[i];
+            const ex = Math.floor(e.x - cameraX);
+            if (ex + e.w < 0 || ex > GAME_W) continue;
+
+            if (!e.alive) {
+                if (e.flatTimer > 0) {
+                    const flatSprite = e.kind === 'beetle' ? ENEMY_BEETLE : ENEMY_WALK_1;
+                    drawSprite(ctx, flatSprite, ex, e.y + e.h * 0.55, e.w, e.h * 0.45, e.vx > 0);
+                }
+                continue;
+            }
+
+            if (e.kind === 'beetle') {
+                drawSprite(ctx, ENEMY_BEETLE, ex, e.y, e.w, e.h, e.vx > 0);
+            } else if (e.kind === 'flyer') {
+                const batSprite = Math.floor(tick / 8) % 2 === 0 ? ENEMY_FLYER_1 : ENEMY_FLYER_2;
+                drawSprite(ctx, batSprite, ex, e.y, e.w, e.h, e.vx > 0);
+            } else {
+                const walkSprite = Math.floor(tick / 12) % 2 === 0 ? ENEMY_WALK_1 : ENEMY_WALK_2;
+                drawSprite(ctx, walkSprite, ex, e.y, e.w, e.h, false);
+            }
+        }
+
+        // Draw Super Kenneth
+        const blinkSkip = player.invuln > 0 && Math.floor(tick / 4) % 2 === 0;
+        if (!blinkSkip) {
+            let sprite = KENNETH_IDLE;
+            let drawW = player.w;
+            let drawX = Math.floor(player.x - cameraX);
+
+            if (player.punchTimer > 0) {
+                sprite = KENNETH_PUNCH;
+                drawW = player.w + 14; // Extended punching fist!
+                if (!player.facingRight) {
+                    drawX -= 14;
+                }
+            } else if (player.isCrouching) {
+                sprite = KENNETH_CROUCH;
+            } else if (!player.onGround) {
+                sprite = KENNETH_JUMP;
+            } else if (Math.abs(player.vx) > 0.3) {
+                sprite = Math.floor(player.animTimer) % 2 === 0 ? KENNETH_RUN : KENNETH_IDLE;
+            }
+
+            drawSprite(
+                ctx,
+                sprite,
+                drawX,
+                Math.floor(player.y),
+                drawW,
+                player.h,
+                !player.facingRight
+            );
+
+            // Visual Punch Impact Arc
+            if (player.punchTimer > 6) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                const arcX = player.facingRight ? drawX + drawW + 2 : drawX - 10;
+                ctx.fillRect(arcX, Math.floor(player.y + player.h * 0.35), 8, 16);
+            }
+        }
+
+        // Particles
+        for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
+            ctx.fillStyle = p.color;
+            ctx.fillRect(Math.floor(p.x - cameraX), Math.floor(p.y), p.size, p.size);
+        }
+
+        // Score Popups
+        ctx.font = 'bold 14px Courier New, monospace';
+        for (let i = 0; i < popups.length; i++) {
+            const pop = popups[i];
+            ctx.fillStyle = '#000000';
+            ctx.fillText(pop.text, Math.floor(pop.x - cameraX) + 2, Math.floor(pop.y) + 2);
+            ctx.fillStyle = pop.color;
+            ctx.fillText(pop.text, Math.floor(pop.x - cameraX), Math.floor(pop.y));
+        }
+    }
+
+    function loop() {
+        updateGame();
+        render();
+        requestAnimationFrame(loop);
+    }
+
+    /**
+     * =========================================================================
+     * 8. CONTROLS & EVENT LISTENERS
+     * =========================================================================
+     */
+    function focusGame() {
+        try {
+            window.focus();
+            canvas.focus();
+        } catch (err) {}
+    }
+
+    canvas.addEventListener('mousedown', () => {
+        unlockAudio();
+        focusGame();
+    });
+    canvas.addEventListener('touchstart', () => {
+        unlockAudio();
+        focusGame();
+    }, { passive: true });
+
+    function handleKeyDown(e) {
+        unlockAudio();
+        const code = e.code;
+        if (code === 'ArrowLeft' || code === 'KeyA') {
+            e.preventDefault();
+            input.left = true;
+        } else if (code === 'ArrowRight' || code === 'KeyD') {
+            e.preventDefault();
+            input.right = true;
+        } else if (code === 'ArrowDown' || code === 'KeyS') {
+            e.preventDefault();
+            input.down = true;
+        } else if (code === 'KeyX' || code === 'KeyJ' || code === 'ShiftLeft' || code === 'ShiftRight' || code === 'Enter') {
+            e.preventDefault();
+            input.punchJustPressed = true;
+        } else if (code === 'Space' || code === 'ArrowUp' || code === 'KeyW') {
+            e.preventDefault();
+            if (!input.jumpHeld) {
+                input.jumpJustPressed = true;
+            }
+            input.jumpHeld = true;
+            if (state !== 'PLAYING' && bannerMode !== 'CLOSE_INFO') {
+                handleBannerAction();
+            }
+        }
+    }
+
+    function handleKeyUp(e) {
+        const code = e.code;
+        if (code === 'ArrowLeft' || code === 'KeyA') {
+            e.preventDefault();
+            input.left = false;
+        } else if (code === 'ArrowRight' || code === 'KeyD') {
+            e.preventDefault();
+            input.right = false;
+        } else if (code === 'ArrowDown' || code === 'KeyS') {
+            e.preventDefault();
+            input.down = false;
+        } else if (code === 'Space' || code === 'ArrowUp' || code === 'KeyW') {
+            e.preventDefault();
+            input.jumpHeld = false;
+        }
+    }
+
+    window.addEventListener('keydown', handleKeyDown, { passive: false });
+    document.addEventListener('keydown', handleKeyDown, { passive: false });
+    window.addEventListener('keyup', handleKeyUp, { passive: false });
+    document.addEventListener('keyup', handleKeyUp, { passive: false });
+
+    function setupControlButton(id, onPress, onRelease) {
+        const btn = document.getElementById(id);
+
+        const press = (e) => {
+            if (e) e.preventDefault();
+            unlockAudio();
+            focusGame();
+            btn.classList.add('pressed');
+            onPress();
+        };
+
+        const release = (e) => {
+            if (e) e.preventDefault();
+            btn.classList.remove('pressed');
+            onRelease();
+        };
+
+        btn.addEventListener('mousedown', press);
+        btn.addEventListener('mouseup', release);
+        btn.addEventListener('mouseleave', release);
+
+        btn.addEventListener('touchstart', press, { passive: false });
+        btn.addEventListener('touchend', release, { passive: false });
+        btn.addEventListener('touchcancel', release, { passive: false });
+    }
+
+    setupControlButton('btn-left', () => { input.left = true; }, () => { input.left = false; });
+    setupControlButton('btn-right', () => { input.right = true; }, () => { input.right = false; });
+    setupControlButton('btn-crouch', () => { input.down = true; }, () => { input.down = false; });
+    setupControlButton('btn-punch', () => { input.punchJustPressed = true; }, () => {});
+    setupControlButton(
+        'btn-jump',
+        () => {
+            if (!input.jumpHeld) input.jumpJustPressed = true;
+            input.jumpHeld = true;
+        },
+        () => {
+            input.jumpHeld = false;
+        }
+    );
+
+    function handleBannerAction() {
+        if (bannerMode === 'NEXT_STAGE') {
+            loadStage(currentStageIndex + 1, true);
+        } else if (bannerMode === 'RESTART_ALL') {
+            loadStage(0, false);
+        } else if (bannerMode === 'CLOSE_INFO') {
+            document.getElementById('status-banner').style.display = 'none';
+            focusGame();
+        }
+    }
+
+    document.getElementById('restart-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        unlockAudio();
+        loadStage(0, false);
+    });
+
+    document.getElementById('banner-action-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        unlockAudio();
+        handleBannerAction();
+    });
+
+    // PWA Install Button Handler
+    document.getElementById('install-btn').addEventListener('click', async (e) => {
+        e.preventDefault();
+        unlockAudio();
+        if (deferredInstallPrompt) {
+            deferredInstallPrompt.prompt();
+            await deferredInstallPrompt.userChoice;
+            deferredInstallPrompt = null;
+        } else {
+            showBanner(
+                'INSTALL SUPER KENNETH APP',
+                '1. Save this code as super_kenneth.html.\n2. Open via HTTPS (e.g. GitHub Pages / Netlify Drop) or browser menu -> "Add to Home Screen / Install App" to play full-screen!',
+                'OK, GOT IT!',
+                'CLOSE_INFO',
+                '#10b981'
+            );
+        }
+    });
+
+    // Start immediately on World 1-1
+    window.addEventListener('load', () => {
+        loadStage(0, false);
+        loop();
+    });
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        loadStage(0, false);
+        loop();
+    }
+})();
+</script>
+</body>
+</html>
