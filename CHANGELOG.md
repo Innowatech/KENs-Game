@@ -1,5 +1,15 @@
 # Changelog – Super-Kenneth
 
+## [2.1.0] – 2026-11-16
+### Neu & Verbessert / Added & Improved
+- **Formatfüllendes Vollbild-Querformat:** Das Spielfeld passt sich nun dynamisch und ohne schwarze Balken an 100 % des Smartphone- und Tablet-Bildschirms an.
+- **Schwebendes Mini-HUD & Zahnrad-Menü (`⚙️`):** Leben, Energie, Münzen, Super-Sterne und Werkzeuge schweben kompakt oben links; oben rechts öffnet das Zahnrad-Menü Musik, Soundeffekte, Sprachwechsel (DE/EN), Touch-Tasten, Pause, Neustart, Weltkarte und Startmenü.
+- **Halbtransparente Overlay-Steuerung:** Steuerkreuz (Hoch/Klettern, Links, Rechts, Bücken/Runter + Schild-Mitte) links unten und runde Aktionstasten (Springen, Schlagen/Schwert, Bumerang, Schild) rechts unten direkt halbtransparent über dem Spielfeld.
+- **Pro-Level-Hintergrundmusik:** Jede der 5 Welten hat eine eigene Hintergrundmelodie plus eine dynamische Boss-Kampfmusik.
+- **Individuelle, abwechslungsreiche Landschaften & Mechaniken:** Unterschiedliche Berggipfel und Schneekappen, große alte Eichen, Nadelbäume, Moos-Ruinen, Wasserfälle, **Hängebrücken**, **schwingende Lianen zum Festhalten** und **Sonic-Turbo-Felder**.
+- **Neue Welt 5 – Blubber-Riff & Glibber-Lagune:** Leichtere Unterwasser-Schwerkraft, aufsteigende Blubberblasen, hüpfende **Quallen-Trampoline**, Glibber-Gegner und Bosskampf gegen **Glibber-König Gloop**.
+- **PWA Auto-Update & 100 % Offline:** Lädt beim Öffnen mit Internetverbindung automatisch neue GitHub-Versionen nach und bleibt offline vollständig spielbar.
+
 ## [2.0.0] – 2026-11-15
 ### Neu / Added
 - **Deutsch / Englisch (DE ↔ EN):** Sprachumschalter im Startmenü und in der HUD-Leiste für alle Menüs, Werkzeuge, Bosse und Spieltexte.

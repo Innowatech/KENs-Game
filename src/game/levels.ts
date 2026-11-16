@@ -11,6 +11,7 @@ import {
   Tile,
   TileKind,
   ToolId,
+  Vine,
 } from './types';
 
 export const GAME_W = 1280;
@@ -39,8 +40,8 @@ export const WORLD_ROADMAP: WorldCardInfo[] = [
     worldCodeEn: 'World 1',
     titleDe: 'Smaragd-Tal & Moos-Ruinen',
     titleEn: 'Emerald Valley & Moss Ruins',
-    landscapeDe: 'Weite grüne Hügel, Wasserfälle, Ruinentunnel & Sprungfedern',
-    landscapeEn: 'Lush green hills, waterfalls, ancient ruins & bounce springs',
+    landscapeDe: 'Große Bäume, Hängebrücken, schwingende Lianen & Wasserfälle',
+    landscapeEn: 'Giant trees, rope bridges, swinging vines & waterfalls',
     bossNameDe: 'König Stachelpanzer',
     bossNameEn: 'King Spike-Shell',
     accent: '#34d399',
@@ -78,16 +79,30 @@ export const WORLD_ROADMAP: WorldCardInfo[] = [
     worldCodeEn: 'World 4',
     titleDe: 'Himmels-Archipel & Sturm-Zitadelle',
     titleEn: 'Sky Archipelago & Storm Citadel',
-    landscapeDe: 'Schwebende Wolkeninseln, Regenbogenbrücken & goldene Ruinen',
-    landscapeEn: 'Floating cloud islands, sky bridges & golden citadels',
+    landscapeDe: 'Wolkeninseln, Hängebrücken, Lianen & Sonic-Turbo-Felder',
+    landscapeEn: 'Cloud islands, sky rope bridges, vines & Sonic turbo pads',
     bossNameDe: 'Sturm-Greif Zephyr',
     bossNameEn: 'Storm Griffin Zephyr',
     accent: '#fbbf24',
+  },
+  {
+    id: 4,
+    mode: 'platformer',
+    worldCodeDe: 'Welt 5 · Riff',
+    worldCodeEn: 'World 5 · Reef',
+    titleDe: 'Blubber-Riff & Glibber-Lagune',
+    titleEn: 'Bubble Reef & Gooey Lagoon',
+    landscapeDe: 'Schwerelose Korallen-Sprünge, Quallen-Trampoline & Glibber-Monster',
+    landscapeEn: 'Floaty coral jumps, bouncy jellyfish pads & gooey monsters',
+    bossNameDe: 'Glibber-König Gloop',
+    bossNameEn: 'Goo-King Gloop',
+    accent: '#f472b6',
   },
 ];
 
 class LevelBuilder {
   private tiles: Tile[] = [];
+  private vines: Vine[] = [];
   private platforms: MovingPlatform[] = [];
   private collectibles: Collectible[] = [];
   private checkpoints: Checkpoint[] = [];
@@ -133,10 +148,27 @@ class LevelBuilder {
     }
   }
 
+  public addRopeBridge(startCol: number, endCol: number, row: number) {
+    for (let c = startCol; c <= endCol; c++) {
+      this.addTile(c, row, 'rope_bridge');
+    }
+  }
+
   public addColumn(col: number, startRow: number, endRow: number, kind: TileKind) {
     for (let r = startRow; r <= endRow; r++) {
       this.addTile(col, r, kind);
     }
+  }
+
+  public addVine(col: number, anchorRow: number, lengthTiles = 5.5) {
+    this.vines.push({
+      id: this.nextId++,
+      anchorX: col * TILE + TILE / 2,
+      anchorY: anchorRow * TILE,
+      length: lengthTiles * TILE,
+      angle: 0.25,
+      angVel: 0,
+    });
   }
 
   public addPlatform(
@@ -275,6 +307,7 @@ class LevelBuilder {
       bat: { w: 46, h: 34, hp: 1, vx: -1.75 },
       slime: { w: 44, h: 38, hp: 2, vx: -1.5 },
       sky_drone: { w: 48, h: 36, hp: 2, vx: -2.0 },
+      gooey: { w: 46, h: 42, hp: 2, vx: -1.6 },
     };
     const d = dims[kind];
     const y = row * TILE + (TILE - d.h);
@@ -346,6 +379,7 @@ class LevelBuilder {
       spawnY: spawnRow * TILE,
       bossTriggerX: bossTriggerCol * TILE,
       tiles: this.tiles,
+      vines: this.vines,
       platforms: this.platforms,
       collectibles: this.collectibles,
       checkpoints: this.checkpoints,
@@ -360,96 +394,96 @@ export function createLevel(levelIndex: number): LevelDefinition {
   if (levelIndex === 0) return buildLevel1();
   if (levelIndex === 1) return buildLevel2();
   if (levelIndex === 2) return buildLevel3Boat();
-  return buildLevel4Sky();
+  if (levelIndex === 3) return buildLevel4Sky();
+  return buildLevel5Reef();
 }
 
 function buildLevel1(): LevelDefinition {
   const b = new LevelBuilder();
 
-  // Abschnitt 1: Sonniges Tal (Cols 0..46)
-  b.groundRow(0, 18, 'grass', 'dirt');
+  // Abschnitt 1: Sonniges Tal & erste Hängebrücke (Cols 0..48)
+  b.groundRow(0, 17, 'grass', 'dirt');
   b.addCoinArc(5, 4, 11);
   b.addTile(9, 10, 'question', 'coin');
   b.addTile(10, 10, 'brick');
   b.addTile(11, 10, 'question', 'heart');
   b.addTile(12, 10, 'brick');
-  b.addEnemy('shroom', 14, 12, 8, 17);
+  b.addEnemy('shroom', 14, 12, 8, 16);
 
-  // Gap 19..20
-  b.groundRow(21, 45, 'grass', 'dirt');
-  b.addCoin(19.5, 10.5);
-  b.addCoin(20.5, 10.5);
+  // Hängebrücke über die erste kleine Schlucht (Cols 18..22)!
+  b.addRopeBridge(18, 22, 13);
+  b.addCoinArc(18, 5, 11);
 
-  // Geheimgang zum Bücken + Super-Stern #1!
-  b.addSpan(23, 27, 11, 'stone');
-  b.addSpan(23, 27, 10, 'grass');
-  b.addGem(24, 12);
-  b.addSuperStar(25, 12);
+  b.groundRow(23, 47, 'grass', 'dirt');
+  // Bück-Tunnel mit Super-Stern #1!
+  b.addSpan(25, 29, 11, 'stone');
+  b.addSpan(25, 29, 10, 'grass');
   b.addGem(26, 12);
-  b.addCoinArc(23, 5, 8.5);
+  b.addSuperStar(27, 12);
+  b.addGem(28, 12);
+  b.addCoinArc(25, 5, 8.5);
 
-  b.addEnemy('shroom', 31, 12, 28, 35);
-  b.addTile(33, 10, 'question', 'coins_burst');
-  b.addTile(37, 12, 'spring');
-  b.addSpan(39, 44, 8, 'bridge');
-  b.addCoinArc(39, 5, 6.5);
-  b.addGem(41, 6.5);
+  b.addEnemy('shroom', 32, 12, 30, 37);
+  b.addTile(35, 10, 'question', 'coins_burst');
+  b.addTile(39, 12, 'spring');
+  b.addSpan(41, 46, 8, 'bridge');
+  b.addCoinArc(41, 5, 6.5);
+  b.addGem(43, 6.5);
 
-  // Checkpoint 1 + Abschnitt 2: Moos-Ruinen & Kraft-Handschuhe (Cols 47..102)
-  b.groundRow(48, 72, 'grass', 'dirt');
-  b.addCheckpoint(49, 13);
-  b.addEnemy('beetle', 54, 12, 51, 59);
-  b.addSpan(55, 60, 10, 'stone');
-  b.addTile(57, 7, 'question', 'heart');
-  b.addChest(57, 9, 'power_gloves');
+  // Checkpoint 1 + Abschnitt 2: Moos-Ruinen, Lianen & Kraft-Handschuhe (Cols 49..104)
+  b.groundRow(49, 70, 'grass', 'dirt');
+  b.addCheckpoint(50, 13);
+  b.addTile(52, 12, 'boost_pad'); // Sonic Turbo-Feld!
+  b.addEnemy('beetle', 56, 12, 53, 61);
+  b.addSpan(57, 61, 10, 'stone');
+  b.addTile(59, 7, 'question', 'heart');
+  b.addChest(59, 9, 'power_gloves');
 
-  // Rissige Felsen zum Zerschmettern!
-  b.addColumn(63, 10, 12, 'cracked');
   b.addColumn(64, 10, 12, 'cracked');
-  b.addGem(63.5, 12);
-  b.addHeart(66, 12);
-  b.addEnemy('bat', 68, 8, 65, 72);
+  b.addColumn(65, 10, 12, 'cracked');
+  b.addGem(64.5, 12);
+  b.addHeart(67, 12);
+  b.addEnemy('bat', 69, 8, 66, 73);
 
-  // Bewegliche Brücke 73..78
-  b.addPlatform(73, 11, 77, 11, 2.5, 0.017);
-  b.addCoin(75, 9);
-  b.addCoin(76, 9);
+  // Lianen-Schlucht (Cols 71..80)! Kenneth schwingt von Liane zu Liane!
+  b.addVine(73, 3.5, 5.5);
+  b.addCoin(73, 9);
+  b.addVine(77, 3.5, 5.5);
+  b.addGem(77, 9);
 
-  b.groundRow(79, 102, 'grass', 'dirt');
-  b.addEnemy('beetle', 83, 12, 80, 88);
-  b.addSpan(85, 90, 9.5, 'brick');
-  b.addTile(87, 9.5, 'question', 'big_heart');
-  b.addSuperStar(88, 7.5); // Super-Stern #2!
-  b.addEnemy('shroom', 93, 12, 89, 98);
-  b.addTile(96, 12, 'spring');
-  b.addSpan(98, 101, 7, 'bridge');
-  b.addGem(99, 5.5);
-  b.addGem(100, 5.5);
+  b.groundRow(81, 104, 'grass', 'dirt');
+  b.addEnemy('beetle', 85, 12, 82, 90);
+  b.addSpan(87, 92, 9.5, 'brick');
+  b.addTile(89, 9.5, 'question', 'big_heart');
+  b.addSuperStar(90, 7.5); // Super-Stern #2!
+  b.addEnemy('shroom', 95, 12, 91, 99);
+  b.addTile(98, 12, 'spring');
+  b.addSpan(100, 103, 7, 'bridge');
+  b.addGem(101, 5.5);
 
-  // Checkpoint 2 + Abschnitt 3: Wasserfall-Schlucht & Tempelpfad (Cols 103..165)
-  b.groundRow(104, 128, 'grass', 'dirt');
-  b.addCheckpoint(105, 13);
-  b.addEnemy('bat', 110, 7.5, 107, 115);
-  b.addSpan(112, 116, 10, 'stone');
-  b.addTile(114, 10, 'question', 'coins_burst');
-  b.addEnemy('beetle', 119, 12, 115, 124);
+  // Checkpoint 2 + Abschnitt 3: Lange Hängebrücke & Tempelpfad (Cols 105..168)
+  b.groundRow(105, 126, 'grass', 'dirt');
+  b.addCheckpoint(106, 13);
+  b.addEnemy('bat', 111, 7.5, 108, 116);
+  b.addSpan(113, 117, 10, 'stone');
+  b.addTile(115, 10, 'question', 'coins_burst');
+  b.addEnemy('beetle', 120, 12, 116, 125);
   b.addColumn(125, 10, 12, 'cracked');
-  b.addHeart(126, 12, true);
 
-  // Doppel-Sprung Passage mit Inseln 129..144
-  b.addSpan(130, 133, 11.5, 'bridge');
-  b.addCoinArc(130, 4, 10);
-  b.addPlatform(135, 11, 139, 9, 2.5, 0.018);
-  b.addSuperStar(137, 7); // Super-Stern #3!
-  b.addSpan(141, 144, 11, 'stone');
-  b.addEnemy('bat', 142, 7.5, 139, 146);
+  // Lange Hängebrücke über die Tal-Schlucht (Cols 127..134)
+  b.addRopeBridge(127, 134, 12);
+  b.addCoinArc(128, 6, 10);
+  b.addPlatform(136, 11, 140, 9, 2.5, 0.018);
+  b.addSuperStar(138, 7); // Super-Stern #3!
+  b.addVine(143, 3.5, 5.5);
 
-  b.groundRow(146, 171, 'grass', 'dirt');
-  b.addEnemy('shroom', 150, 12, 147, 155);
-  b.addEnemy('beetle', 158, 12, 153, 163);
-  b.addTile(155, 10, 'question', 'heart');
-  b.addSpan(160, 164, 9.5, 'brick');
-  b.addCoinArc(160, 5, 8);
+  b.groundRow(147, 171, 'grass', 'dirt');
+  b.addTile(150, 12, 'boost_pad');
+  b.addEnemy('shroom', 153, 12, 148, 157);
+  b.addEnemy('beetle', 160, 12, 155, 165);
+  b.addTile(157, 10, 'question', 'heart');
+  b.addSpan(161, 165, 9.5, 'brick');
+  b.addCoinArc(161, 5, 8);
 
   // Checkpoint 3 + Sternen-Bumerang Truhe vor Boss 1!
   b.addCheckpoint(167, 13);
@@ -501,8 +535,8 @@ function buildLevel1(): LevelDefinition {
       worldCodeEn: 'World 1',
       nameDe: 'Smaragd-Tal & Moos-Ruinen',
       nameEn: 'Emerald Valley & Moss Ruins',
-      subtitleDe: 'Sonnige Hügel, Tempelruinen & König Stachelpanzer',
-      subtitleEn: 'Sunny hills, temple ruins & King Spike-Shell',
+      subtitleDe: 'Hängebrücken, Lianen & König Stachelpanzer',
+      subtitleEn: 'Rope bridges, vines & King Spike-Shell',
       skyTop: '#0284c7',
       skyMid: '#38bdf8',
       skyBottom: '#bae6fd',
@@ -522,7 +556,6 @@ function buildLevel1(): LevelDefinition {
 function buildLevel2(): LevelDefinition {
   const b = new LevelBuilder();
 
-  // Abschnitt 1: Kristall-Eingang (Cols 0..50)
   b.groundRow(0, 19, 'crystal', 'stone');
   b.addCoinArc(5, 4, 11);
   b.addTile(9, 10, 'question', 'coin');
@@ -530,7 +563,6 @@ function buildLevel2(): LevelDefinition {
   b.addTile(11, 10, 'question', 'heart');
   b.addEnemy('slime', 14, 12, 10, 18);
 
-  // Magma-Schlucht mit beweglicher Plattform
   b.addSpan(20, 25, 14, 'lava');
   b.addPlatform(20, 12, 24, 12, 2.5, 0.017);
   b.addCoin(22, 9.5);
@@ -539,12 +571,11 @@ function buildLevel2(): LevelDefinition {
   b.groundRow(26, 49, 'crystal', 'stone');
   b.addEnemy('bat', 29, 7.5, 26, 35);
   b.addSpan(31, 35, 10, 'crystal');
-  b.addChest(33, 9, 'turbo_boots'); // Turbo-Stiefel!
+  b.addChest(33, 9, 'turbo_boots');
   b.addTile(32, 7, 'question', 'coins_burst');
   b.addEnemy('slime', 39, 12, 36, 44);
   b.addEnemy('beetle', 43, 12, 38, 48);
 
-  // Bück-Kristalltunnel + Super-Stern #1!
   b.groundRow(50, 62, 'crystal', 'stone');
   b.addCheckpoint(51, 13);
   b.addSpan(53, 57, 11, 'stone');
@@ -554,47 +585,44 @@ function buildLevel2(): LevelDefinition {
   b.addHeart(56, 12, true);
   b.addCoinArc(53, 5, 8);
 
-  // Abschnitt 2: Magma-Brücken & Kristall-Türme (Cols 63..115)
+  // Magma-Schlucht mit Hängebrücke!
   b.addSpan(63, 74, 14, 'lava');
-  b.addSpan(64, 67, 12, 'bridge');
+  b.addRopeBridge(64, 68, 12);
   b.addCoin(65, 10);
-  b.addCoin(66, 10);
-  b.addPlatform(68, 11.5, 72, 9.5, 2.5, 0.019);
-  b.addGem(70, 8);
+  b.addCoin(67, 10);
+  b.addPlatform(69, 11.5, 73, 9.5, 2.5, 0.019);
+  b.addGem(71, 8);
 
   b.groundRow(75, 96, 'crystal', 'stone');
   b.addTile(78, 12, 'spring');
   b.addSpan(80, 85, 8, 'bridge');
   b.addTile(82, 5, 'question', 'big_heart');
-  b.addSuperStar(84, 6.5); // Super-Stern #2!
+  b.addSuperStar(84, 6.5);
   b.addEnemy('bat', 83, 10, 77, 88);
   b.addEnemy('beetle', 89, 12, 85, 95);
   b.addColumn(92, 10, 12, 'cracked');
   b.addGem(93, 12);
 
-  // Lava-Inseln 97..108
   b.addSpan(97, 108, 14, 'lava');
-  b.addSpan(98, 100, 11.5, 'crystal');
-  b.addHeart(99, 10);
+  b.addVine(100, 3.5, 5.5);
   b.addSpan(102, 104, 10, 'crystal');
   b.addCoinArc(102, 3, 8.5);
   b.addSpan(106, 107, 11, 'crystal');
   b.addEnemy('bat', 103, 7, 98, 107);
 
-  // Checkpoint 2 + Abschnitt 3: Tiefe Vulkan-Kammern (Cols 109..174)
   b.groundRow(109, 134, 'crystal', 'stone');
   b.addCheckpoint(110, 13);
+  b.addTile(112, 12, 'boost_pad');
   b.addEnemy('slime', 115, 12, 112, 122);
   b.addTile(118, 10, 'question', 'coins_burst');
   b.addSpan(121, 126, 9, 'stone');
   b.addTile(123, 9, 'question', 'heart');
   b.addEnemy('beetle', 127, 12, 123, 133);
 
-  // Aufstieg über Kristall-Plattformen 135..152
   b.addSpan(135, 152, 14, 'lava');
   b.addPlatform(136, 12, 140, 10, 2.5, 0.018);
-  b.addSpan(142, 145, 9.5, 'bridge');
-  b.addSuperStar(143.5, 8); // Super-Stern #3!
+  b.addRopeBridge(142, 145, 9.5);
+  b.addSuperStar(143.5, 8);
   b.addPlatform(147, 10, 150, 11.5, 2.5, 0.018);
 
   b.groundRow(153, 175, 'crystal', 'stone');
@@ -602,11 +630,9 @@ function buildLevel2(): LevelDefinition {
   b.addEnemy('bat', 162, 7.5, 156, 168);
   b.addTile(164, 10, 'question', 'big_heart');
 
-  // Checkpoint 3 + Sonnen-Klinge Truhe vor Boss 2!
   b.addCheckpoint(170, 13);
   b.addChest(172, 12, 'sun_sword');
 
-  // Boss 2 Arena (Cols 176..203)
   b.groundRow(176, 203, 'stone', 'stone');
   b.addColumn(176, 3, 10, 'stone');
   b.addColumn(203, 3, 12, 'stone');
@@ -674,11 +700,6 @@ function buildLevel2(): LevelDefinition {
 function buildLevel3Boat(): LevelDefinition {
   const b = new LevelBuilder();
 
-  // Top-Down Flussfahrt! (Cols 0..184)
-  // Flussufer sind in renderer.ts oben (y < 88) & unten (y > 632)
-  // Kisten (crate, heart_crate), Felsen (rock), Eisberge (iceberg), Strudel (whirlpool), Minen (mine)
-
-  // Abschnitt 1: Canyon-Start (Cols 12..56)
   b.addCoin(14, 5);
   b.addCoin(15, 6);
   b.addCoin(16, 7);
@@ -693,13 +714,12 @@ function buildLevel3Boat(): LevelDefinition {
   b.addCoin(40, 9);
   b.addCoin(41, 9);
   b.addBoatObstacle('crate', 44, 190);
-  b.addSuperStar(46, 3); // Super-Stern #1 (oben am Canyon-Rand)
+  b.addSuperStar(46, 3);
   b.addBoatObstacle('rock', 49, 390);
   b.addBoatObstacle('mine', 53, 270, 1.4);
 
-  // Checkpoint 1 + Abschnitt 2: Aegis-Schild & Eis-Strom! (Cols 58..114)
   b.addBoatCheckpoint(58, 324);
-  b.addChest(63, 6.5, 'aegis_shield'); // Neues Werkzeug: Aegis-Schild!
+  b.addChest(63, 6.5, 'aegis_shield');
 
   b.addBoatObstacle('iceberg', 70, 200);
   b.addBoatObstacle('iceberg', 72, 460);
@@ -710,13 +730,12 @@ function buildLevel3Boat(): LevelDefinition {
   b.addBoatObstacle('heart_crate', 86, 480);
   b.addBoatObstacle('whirlpool', 91, 350);
   b.addBoatObstacle('iceberg', 96, 160);
-  b.addSuperStar(98, 10.5); // Super-Stern #2!
+  b.addSuperStar(98, 10.5);
   b.addBoatObstacle('rock', 102, 290);
   b.addBoatObstacle('crate', 106, 210);
   b.addBoatObstacle('crate', 106, 430);
   b.addBoatObstacle('mine', 111, 330, 2.0);
 
-  // Checkpoint 2 + Abschnitt 3: Stromschnellen (Cols 116..158)
   b.addBoatCheckpoint(116, 324);
   b.addCoinArc(120, 5, 5);
   b.addBoatObstacle('iceberg', 124, 240);
@@ -724,14 +743,13 @@ function buildLevel3Boat(): LevelDefinition {
   b.addBoatObstacle('heart_crate', 132, 320);
   b.addBoatObstacle('mine', 136, 180, 2.1);
   b.addBoatObstacle('mine', 138, 470, -2.1);
-  b.addSuperStar(142, 7); // Super-Stern #3!
+  b.addSuperStar(142, 7);
   b.addBoatObstacle('crate', 145, 200);
   b.addBoatObstacle('crate', 145, 450);
   b.addBoatObstacle('rock', 150, 340);
   b.addGem(152, 4);
   b.addGem(152, 10);
 
-  // Checkpoint 3 vor der Eis-Bucht Boss-Arena
   b.addBoatCheckpoint(156, 324);
   b.addHeart(158, 7, true);
 
@@ -792,48 +810,47 @@ function buildLevel3Boat(): LevelDefinition {
 function buildLevel4Sky(): LevelDefinition {
   const b = new LevelBuilder();
 
-  // Abschnitt 1: Wolken-Brücken (Cols 0..48)
   b.groundRow(0, 16, 'cloud', 'stone');
   b.addCoinArc(5, 4, 11);
   b.addTile(9, 10, 'question', 'coin');
   b.addTile(11, 10, 'question', 'heart');
   b.addEnemy('sky_drone', 13, 8, 9, 17);
 
-  b.addSpan(18, 22, 12, 'cloud');
-  b.addTile(20, 11, 'spring');
-  b.addSpan(23, 28, 8, 'bridge');
-  b.addSuperStar(25.5, 6.5); // Super-Stern #1!
-  b.addCoinArc(23, 5, 6.5);
+  b.addRopeBridge(17, 21, 12);
+  b.addSpan(22, 24, 12, 'cloud');
+  b.addTile(23, 11, 'spring');
+  b.addSpan(25, 30, 8, 'bridge');
+  b.addSuperStar(27.5, 6.5);
+  b.addCoinArc(25, 5, 6.5);
 
-  b.groundRow(29, 48, 'cloud', 'stone');
-  b.addEnemy('beetle', 34, 12, 30, 39);
-  b.addSpan(36, 40, 9.5, 'stone');
-  b.addTile(38, 9.5, 'question', 'coins_burst');
-  b.addEnemy('sky_drone', 43, 8, 39, 47);
+  b.groundRow(31, 48, 'cloud', 'stone');
+  b.addTile(33, 12, 'boost_pad');
+  b.addEnemy('beetle', 36, 12, 32, 41);
+  b.addSpan(38, 42, 9.5, 'stone');
+  b.addTile(40, 9.5, 'question', 'coins_burst');
+  b.addEnemy('sky_drone', 44, 8, 40, 48);
 
-  // Checkpoint 1 + Abschnitt 2: Schwebende Archipel-Inseln (Cols 49..106)
   b.groundRow(49, 60, 'cloud', 'stone');
   b.addCheckpoint(50, 13);
   b.addHeart(54, 12, true);
   b.addColumn(58, 10, 12, 'cracked');
   b.addGem(59, 12);
 
-  b.addPlatform(62, 12, 67, 10, 2.5, 0.018);
-  b.addSpan(69, 75, 10, 'cloud');
-  b.addEnemy('beetle', 72, 10 - 1, 69, 75);
-  b.addPlatform(77, 10, 82, 12, 2.5, 0.018);
-  b.addSuperStar(79.5, 7.5); // Super-Stern #2!
+  b.addVine(63, 3.5, 5.5);
+  b.addSpan(66, 73, 10, 'cloud');
+  b.addEnemy('beetle', 69, 9, 66, 73);
+  b.addPlatform(75, 10, 81, 12, 2.5, 0.018);
+  b.addSuperStar(78, 7.5);
 
   b.groundRow(84, 106, 'cloud', 'stone');
   b.addEnemy('sky_drone', 88, 7.5, 85, 95);
   b.addTile(92, 10, 'question', 'big_heart');
   b.addSpan(95, 99, 11, 'stone');
-  b.addSpan(95, 99, 10, 'cloud'); // Bück-Tunnel im Himmelstempel!
+  b.addSpan(95, 99, 10, 'cloud');
   b.addGem(96, 12);
   b.addGem(97, 12);
   b.addGem(98, 12);
 
-  // Checkpoint 2 + Abschnitt 3: Sonnen-Zitadelle Aufstieg (Cols 107..168)
   b.groundRow(107, 126, 'cloud', 'stone');
   b.addCheckpoint(108, 13);
   b.addEnemy('beetle', 114, 12, 110, 120);
@@ -842,23 +859,22 @@ function buildLevel4Sky(): LevelDefinition {
   b.addCoinArc(124, 6, 6.5);
   b.addEnemy('sky_drone', 128, 6, 123, 134);
 
-  b.addSpan(132, 136, 11, 'cloud');
-  b.addHeart(134, 10);
-  b.addPlatform(138, 11, 143, 9, 2.5, 0.019);
-  b.addSuperStar(140.5, 7); // Super-Stern #3!
-  b.addSpan(145, 150, 10.5, 'cloud');
-  b.addEnemy('beetle', 147, 9.5, 145, 150);
+  b.addRopeBridge(132, 137, 11);
+  b.addHeart(134, 9.5);
+  b.addPlatform(139, 11, 144, 9, 2.5, 0.019);
+  b.addSuperStar(141.5, 7);
+  b.addSpan(146, 151, 10.5, 'cloud');
+  b.addEnemy('beetle', 148, 9.5, 146, 151);
 
-  b.groundRow(152, 173, 'cloud', 'stone');
-  b.addEnemy('sky_drone', 157, 7.5, 153, 163);
+  b.groundRow(153, 173, 'cloud', 'stone');
+  b.addTile(155, 12, 'boost_pad');
+  b.addEnemy('sky_drone', 158, 7.5, 154, 164);
   b.addTile(161, 10, 'question', 'big_heart');
   b.addEnemy('beetle', 166, 12, 160, 170);
 
-  // Checkpoint 3 vor Boss 4!
   b.addCheckpoint(169, 13);
   b.addHeart(171, 12, true);
 
-  // Boss 4 Arena (Cols 174..201)
   b.groundRow(174, 201, 'stone', 'stone');
   b.addColumn(174, 3, 10, 'stone');
   b.addColumn(201, 3, 12, 'stone');
@@ -905,8 +921,8 @@ function buildLevel4Sky(): LevelDefinition {
       worldCodeEn: 'World 4',
       nameDe: 'Himmels-Archipel & Sturm-Zitadelle',
       nameEn: 'Sky Archipelago & Storm Citadel',
-      subtitleDe: 'Wolkeninseln, Sonnenbrücken & Sturm-Greif Zephyr',
-      subtitleEn: 'Cloud islands, sun bridges & Storm Griffin Zephyr',
+      subtitleDe: 'Wolkeninseln, Hängebrücken & Sturm-Greif Zephyr',
+      subtitleEn: 'Cloud islands, rope bridges & Storm Griffin Zephyr',
       skyTop: '#0369a1',
       skyMid: '#0ea5e9',
       skyBottom: '#fef08a',
@@ -914,6 +930,138 @@ function buildLevel4Sky(): LevelDefinition {
       nearHillColor: '#bae6fd',
       accentColor: '#fbbf24',
       backdropStyle: 'sky',
+    },
+    202,
+    3,
+    11,
+    176,
+    boss
+  );
+}
+
+function buildLevel5Reef(): LevelDefinition {
+  const b = new LevelBuilder();
+
+  // Abschnitt 1: Korallen-Lagune mit schwerelosen Sprüngen & Quallen-Trampolinen!
+  b.groundRow(0, 20, 'coral', 'sand');
+  b.addCoinArc(5, 4, 10);
+  b.addTile(9, 9.5, 'question', 'coin');
+  b.addTile(11, 9.5, 'question', 'heart');
+  b.addTile(15, 12, 'jelly_pad'); // Hüpfende Qualle!
+  b.addCoinArc(15, 4, 6.5);
+  b.addEnemy('gooey', 17, 12, 11, 19);
+
+  b.addRopeBridge(21, 25, 12);
+  b.addSuperStar(23, 10); // Super-Stern #1!
+
+  b.groundRow(26, 50, 'coral', 'sand');
+  b.addEnemy('gooey', 30, 12, 27, 36);
+  b.addTile(34, 12, 'jelly_pad');
+  b.addSpan(36, 41, 8, 'coral');
+  b.addTile(38, 8, 'question', 'coins_burst');
+  b.addEnemy('bat', 43, 7, 37, 48);
+  b.addTile(46, 12, 'boost_pad');
+
+  // Checkpoint 1 + Abschnitt 2: Quallenfelder & Blubber-Gräben (Cols 51..108)
+  b.groundRow(51, 66, 'coral', 'sand');
+  b.addCheckpoint(52, 13);
+  b.addHeart(55, 12, true);
+  b.addSpan(58, 62, 11, 'stone');
+  b.addSpan(58, 62, 10, 'coral'); // Bück-Korallentunnel!
+  b.addGem(59, 12);
+  b.addGem(60, 12);
+  b.addGem(61, 12);
+
+  b.addTile(68, 11.5, 'jelly_pad');
+  b.addCoin(68, 7.5);
+  b.addTile(73, 11, 'jelly_pad');
+  b.addSuperStar(73, 6.5); // Super-Stern #2!
+  b.addTile(78, 11.5, 'jelly_pad');
+
+  b.groundRow(82, 108, 'coral', 'sand');
+  b.addEnemy('gooey', 86, 12, 83, 93);
+  b.addTile(90, 9.5, 'question', 'big_heart');
+  b.addEnemy('gooey', 96, 12, 92, 102);
+  b.addVine(103, 3.5, 5.5);
+
+  // Checkpoint 2 + Abschnitt 3: Tiefsee-Tempel (Cols 109..170)
+  b.groundRow(109, 130, 'coral', 'sand');
+  b.addCheckpoint(110, 13);
+  b.addTile(113, 12, 'boost_pad');
+  b.addEnemy('gooey', 117, 12, 114, 124);
+  b.addSpan(120, 125, 9, 'bridge');
+  b.addTile(122, 9, 'question', 'coins_burst');
+
+  b.addPlatform(132, 11.5, 137, 9.5, 2.5, 0.018);
+  b.addSuperStar(134.5, 7.5); // Super-Stern #3!
+  b.addRopeBridge(139, 144, 11);
+  b.addPlatform(146, 10.5, 150, 12, 2.5, 0.018);
+
+  b.groundRow(152, 173, 'coral', 'sand');
+  b.addEnemy('gooey', 156, 12, 153, 163);
+  b.addTile(160, 10, 'question', 'big_heart');
+  b.addEnemy('bat', 165, 7, 158, 170);
+
+  b.addCheckpoint(169, 13);
+  b.addHeart(171, 12, true);
+
+  // Boss 5 Arena: Glibber-König Gloop! (Cols 174..201)
+  b.groundRow(174, 201, 'stone', 'sand');
+  b.addColumn(174, 3, 10, 'stone');
+  b.addColumn(201, 3, 12, 'stone');
+  b.addSpan(178, 181, 10, 'coral');
+  b.addSpan(193, 196, 10, 'coral');
+  b.addTile(186, 12, 'jelly_pad');
+  b.addTile(188, 12, 'jelly_pad');
+  b.addHeart(179, 9, true);
+  b.addHeart(194, 9, true);
+
+  const boss: Boss = {
+    kind: 'goo_king',
+    nameDe: 'Glibber-König Gloop',
+    nameEn: 'Goo-King Gloop',
+    subtitleDe: 'Herrscher der Glibber-Lagune',
+    subtitleEn: 'Ruler of the Gooey Lagoon',
+    x: 192 * TILE,
+    y: 13 * TILE - 112,
+    w: 118,
+    h: 112,
+    vx: 0,
+    vy: 0,
+    hp: 32,
+    maxHp: 32,
+    arenaMinX: 175 * TILE,
+    arenaMaxX: 200 * TILE,
+    floorY: 13 * TILE,
+    active: false,
+    defeated: false,
+    facingRight: false,
+    phaseState: 'IDLE',
+    stateTimer: 50,
+    hitFlash: 0,
+    invulnTimer: 0,
+    attackPattern: 0,
+    animTick: 0,
+  };
+
+  return b.build(
+    {
+      id: 4,
+      mode: 'platformer',
+      worldCodeDe: 'Welt 5 · Riff',
+      worldCodeEn: 'World 5 · Reef',
+      nameDe: 'Blubber-Riff & Glibber-Lagune',
+      nameEn: 'Bubble Reef & Gooey Lagoon',
+      subtitleDe: 'Quallen-Trampoline, Blubberblasen & Glibber-König Gloop',
+      subtitleEn: 'Bouncy jellyfish, bubble leaps & Goo-King Gloop',
+      skyTop: '#0284c7',
+      skyMid: '#06b6d4',
+      skyBottom: '#67e8f9',
+      farHillColor: '#0e7490',
+      nearHillColor: '#14b8a6',
+      accentColor: '#f472b6',
+      backdropStyle: 'reef',
+      lowGravity: true,
     },
     202,
     3,

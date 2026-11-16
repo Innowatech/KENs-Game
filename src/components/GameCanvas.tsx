@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
+import { soundEngine } from '../game/audio';
 import { SuperKennethEngine } from '../game/engine';
-import { GAME_H, GAME_W } from '../game/levels';
+import { GAME_H } from '../game/levels';
 import { renderGame } from '../game/renderer';
 import { InputState } from '../game/types';
 
@@ -17,10 +18,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   isActive,
   onTogglePause,
 }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const metricsRef = useRef({ dpr: 1, scale: 1 });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      soundEngine.unlock();
+
       if (e.code === 'Escape' || e.code === 'KeyP') {
         e.preventDefault();
         onTogglePause();
@@ -101,14 +106,29 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   }, [inputRef, isActive, onTogglePause]);
 
   useEffect(() => {
+    const container = containerRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!container || !canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = GAME_W * dpr;
-    canvas.height = GAME_H * dpr;
+    const updateSize = () => {
+      const rect = container.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const scale = rect.height / GAME_H;
+      const viewW = rect.width / scale;
+
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      metricsRef.current = { dpr, scale };
+      engineRef.current?.setViewWidth(viewW);
+    };
+
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(container);
+    window.addEventListener('resize', updateSize);
 
     let rafId = 0;
     let lastTime = performance.now();
@@ -126,7 +146,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           engine.update(inputRef.current);
           accumulator -= STEP;
         }
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const { dpr, scale } = metricsRef.current;
+        ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
         renderGame(ctx, engine);
       }
 
@@ -134,15 +155,24 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     };
 
     rafId = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(rafId);
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
   }, [engineRef, inputRef]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      tabIndex={0}
-      onPointerDown={() => canvasRef.current?.focus()}
-      className="w-full h-full max-w-full max-h-full aspect-video object-contain outline-none block"
-    />
+    <div ref={containerRef} className="w-full h-full relative overflow-hidden">
+      <canvas
+        ref={canvasRef}
+        tabIndex={0}
+        onPointerDown={() => {
+          soundEngine.unlock();
+          canvasRef.current?.focus();
+        }}
+        className="w-full h-full block outline-none"
+      />
+    </div>
   );
 };

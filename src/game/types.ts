@@ -96,10 +96,15 @@ export type TileKind =
   | 'question'
   | 'used'
   | 'bridge'
+  | 'rope_bridge'
   | 'crystal'
   | 'cloud'
+  | 'coral'
+  | 'sand'
   | 'lava'
-  | 'spring';
+  | 'spring'
+  | 'boost_pad'
+  | 'jelly_pad';
 
 export interface Tile {
   id: number;
@@ -112,6 +117,15 @@ export interface Tile {
   reward?: 'coin' | 'heart' | 'big_heart' | 'coins_burst';
   used?: boolean;
   springAnim?: number;
+}
+
+export interface Vine {
+  id: number;
+  anchorX: number;
+  anchorY: number;
+  length: number;
+  angle: number;
+  angVel: number;
 }
 
 export interface MovingPlatform {
@@ -150,7 +164,7 @@ export interface Checkpoint {
   activated: boolean;
 }
 
-export type EnemyKind = 'shroom' | 'beetle' | 'bat' | 'slime' | 'sky_drone';
+export type EnemyKind = 'shroom' | 'beetle' | 'bat' | 'slime' | 'sky_drone' | 'gooey';
 
 export interface Enemy {
   id: number;
@@ -189,7 +203,12 @@ export interface BoatObstacle {
   phase: number;
 }
 
-export type BossKind = 'beetle_king' | 'lava_dragon' | 'ice_leviathan' | 'storm_griffin';
+export type BossKind =
+  | 'beetle_king'
+  | 'lava_dragon'
+  | 'ice_leviathan'
+  | 'storm_griffin'
+  | 'goo_king';
 
 export type BossPhaseState =
   | 'IDLE'
@@ -230,7 +249,14 @@ export interface Boss {
 export interface Projectile {
   id: number;
   fromPlayer: boolean;
-  kind: 'boomerang' | 'shockwave' | 'fireball' | 'stone_wave' | 'water_orb' | 'wind_blade';
+  kind:
+    | 'boomerang'
+    | 'shockwave'
+    | 'fireball'
+    | 'stone_wave'
+    | 'water_orb'
+    | 'wind_blade'
+    | 'goo_blob';
   x: number;
   y: number;
   w: number;
@@ -278,6 +304,10 @@ export interface Player {
   jumpsRemaining: number;
   isCrouching: boolean;
   isShielding: boolean;
+  grabbedVineId: number | null;
+  vineOffset: number;
+  vineCooldown: number;
+  boostTimer: number;
   attackTimer: number;
   attackCooldown: number;
   boomerangCooldown: number;
@@ -326,7 +356,8 @@ export interface LevelTheme {
   farHillColor: string;
   nearHillColor: string;
   accentColor: string;
-  backdropStyle: 'meadow' | 'cavern' | 'river' | 'sky';
+  backdropStyle: 'meadow' | 'cavern' | 'river' | 'sky' | 'reef';
+  lowGravity?: boolean;
 }
 
 export interface LevelDefinition {
@@ -337,6 +368,7 @@ export interface LevelDefinition {
   spawnY: number;
   bossTriggerX: number;
   tiles: Tile[];
+  vines: Vine[];
   platforms: MovingPlatform[];
   collectibles: Collectible[];
   checkpoints: Checkpoint[];

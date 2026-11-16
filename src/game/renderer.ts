@@ -1,6 +1,11 @@
 import { SuperKennethEngine } from './engine';
-import { GAME_H, GAME_W } from './levels';
-import { BoatObstacle, Boss, Collectible, Enemy, Tile } from './types';
+import { GAME_H } from './levels';
+import { BoatObstacle, Boss, Collectible, Enemy, Tile, Vine } from './types';
+
+function hashSeed(n: number): number {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+  return x - Math.floor(x);
+}
 
 function roundedRect(
   ctx: CanvasRenderingContext2D,
@@ -49,7 +54,7 @@ export function renderGame(
   ctx: CanvasRenderingContext2D,
   engine: SuperKennethEngine
 ) {
-  const { level, player, cameraX, tick } = engine;
+  const { level, player, cameraX, tick, viewW } = engine;
   const theme = level.theme;
 
   ctx.save();
@@ -66,10 +71,10 @@ export function renderGame(
     renderPlatformerWorld(ctx, engine);
   }
 
-  // Particles (both modes)
+  // Particles
   for (const pt of engine.particles) {
     const px = Math.floor(pt.x - cameraX);
-    if (px < -24 || px > GAME_W + 24) continue;
+    if (px < -30 || px > viewW + 30) continue;
     ctx.save();
     ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
     if (pt.glow) {
@@ -89,6 +94,7 @@ export function renderGame(
   ctx.textAlign = 'center';
   for (const ft of engine.floatingTexts) {
     const fx = Math.floor(ft.x - cameraX + 20);
+    if (fx < -120 || fx > viewW + 120) continue;
     ctx.globalAlpha = Math.min(1, (ft.life / ft.maxLife) * 1.4);
     ctx.lineWidth = 4.5;
     ctx.strokeStyle = 'rgba(15, 23, 42, 0.92)';
@@ -105,7 +111,7 @@ function renderTopDownRiverWorld(
   ctx: CanvasRenderingContext2D,
   engine: SuperKennethEngine
 ) {
-  const { level, player, cameraX, tick } = engine;
+  const { level, player, cameraX, tick, viewW } = engine;
 
   // Water Base Gradient
   const waterGrad = ctx.createLinearGradient(0, 80, 0, GAME_H - 80);
@@ -113,33 +119,37 @@ function renderTopDownRiverWorld(
   waterGrad.addColorStop(0.5, '#0ea5e9');
   waterGrad.addColorStop(1, '#0284c7');
   ctx.fillStyle = waterGrad;
-  ctx.fillRect(0, 0, GAME_W, GAME_H);
+  ctx.fillRect(0, 0, viewW, GAME_H);
 
-  // Animated Flowing Water Currents
+  // Flowing Water Currents across full dynamic viewW
   ctx.strokeStyle = 'rgba(224, 242, 254, 0.28)';
   ctx.lineWidth = 3;
   ctx.lineCap = 'round';
+  const streamCount = Math.ceil(viewW / 260) + 3;
   for (let row = 0; row < 9; row++) {
     const y = 125 + row * 58;
-    for (let i = -1; i < 6; i++) {
-      const wx = ((i * 280 - (cameraX * 0.9 + tick * 2.5)) % (GAME_W + 300)) - 100;
-      const adjustedX = wx < -140 ? wx + GAME_W + 300 : wx;
+    const wrapW = streamCount * 260;
+    for (let i = 0; i < streamCount; i++) {
+      let wx = ((i * 260 - (cameraX * 0.9 + tick * 2.6 + row * 73)) % wrapW);
+      if (wx < -130) wx += wrapW;
       ctx.beginPath();
-      ctx.moveTo(adjustedX, y);
-      ctx.quadraticCurveTo(adjustedX + 45, y - 6, adjustedX + 90, y);
+      ctx.moveTo(wx, y);
+      ctx.quadraticCurveTo(wx + 45, y - 6, wx + 90, y);
       ctx.stroke();
     }
   }
 
-  // Canyon / Pine Riverbanks (Top & Bottom)
-  drawRiverBanks(ctx, cameraX, tick);
+  // Individualized Riverbanks
+  drawRiverBanks(ctx, cameraX, tick, viewW);
 
-  // River Checkpoints (Floating Buoy Gates)
+  // River Checkpoints
   for (const cp of level.checkpoints) {
     const cx = Math.floor(cp.x - cameraX);
-    if (cx < -60 || cx > GAME_W + 60) continue;
+    if (cx < -60 || cx > viewW + 60) continue;
     ctx.save();
-    ctx.strokeStyle = cp.activated ? 'rgba(52, 211, 153, 0.7)' : 'rgba(251, 191, 36, 0.5)';
+    ctx.strokeStyle = cp.activated
+      ? 'rgba(52, 211, 153, 0.7)'
+      : 'rgba(251, 191, 36, 0.5)';
     ctx.setLineDash([10, 8]);
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -148,7 +158,6 @@ function renderTopDownRiverWorld(
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Top & Bottom Buoys
     [106, GAME_H - 106].forEach((by) => {
       ctx.fillStyle = cp.activated ? '#10b981' : '#f59e0b';
       ctx.beginPath();
@@ -161,34 +170,32 @@ function renderTopDownRiverWorld(
     ctx.restore();
   }
 
-  // Collectibles (Coins, Gems, Hearts, Super Stars, Chest)
+  // Collectibles
   for (const col of level.collectibles) {
     if (col.collected) continue;
     const cx = Math.floor(col.x - cameraX);
-    if (cx + col.w < -20 || cx > GAME_W + 20) continue;
+    if (cx + col.w < -20 || cx > viewW + 20) continue;
     drawCollectible(ctx, col, cx, tick);
   }
 
-  // Boat Obstacles (Rocks, Icebergs, Whirlpools, Mines, Crates)
+  // Obstacles
   for (const obs of level.boatObstacles) {
     if (!obs.alive) continue;
     const ox = Math.floor(obs.x - cameraX);
-    if (ox + obs.w < -40 || ox > GAME_W + 40) continue;
+    if (ox + obs.w < -40 || ox > viewW + 40) continue;
     drawBoatObstacle(ctx, obs, ox, tick);
   }
 
   // Boss 3: Eis-Kreuzer Leviathan
   if (!level.boss.defeated) {
     const bx = Math.floor(level.boss.x - cameraX);
-    if (bx + level.boss.w > -80 && bx < GAME_W + 140) {
+    if (bx + level.boss.w > -80 && bx < viewW + 140) {
       drawBoss(ctx, level.boss, bx, tick);
     }
   }
 
-  // Projectiles
   drawProjectiles(ctx, engine);
 
-  // Super-Kenneth's Speedboat!
   const blinkSkip = player.invulnTimer > 0 && Math.floor(tick / 4) % 2 === 0;
   if (!blinkSkip) {
     drawKennethBoat(ctx, engine, Math.floor(player.x - cameraX));
@@ -198,50 +205,84 @@ function renderTopDownRiverWorld(
 function drawRiverBanks(
   ctx: CanvasRenderingContext2D,
   cameraX: number,
-  tick: number
+  tick: number,
+  viewW: number
 ) {
-  // Foam shoreline along top & bottom banks
   ctx.fillStyle = 'rgba(224, 242, 254, 0.45)';
-  ctx.fillRect(0, 82, GAME_W, 14);
-  ctx.fillRect(0, GAME_H - 96, GAME_W, 14);
+  ctx.fillRect(0, 82, viewW, 14);
+  ctx.fillRect(0, GAME_H - 96, viewW, 14);
 
-  // Grassy & Rocky Canyon Cliffs Top & Bottom
   const topGrad = ctx.createLinearGradient(0, 0, 0, 88);
   topGrad.addColorStop(0, '#065f46');
   topGrad.addColorStop(0.7, '#10b981');
   topGrad.addColorStop(1, '#78350f');
   ctx.fillStyle = topGrad;
-  ctx.fillRect(0, 0, GAME_W, 86);
+  ctx.fillRect(0, 0, viewW, 86);
 
   const botGrad = ctx.createLinearGradient(0, GAME_H - 88, 0, GAME_H);
   botGrad.addColorStop(0, '#78350f');
   botGrad.addColorStop(0.3, '#10b981');
   botGrad.addColorStop(1, '#065f46');
   ctx.fillStyle = botGrad;
-  ctx.fillRect(0, GAME_H - 86, GAME_W, 86);
+  ctx.fillRect(0, GAME_H - 86, viewW, 86);
 
-  // Scalloped cartoon trees & rocks along riverbanks
-  for (let i = -1; i < 12; i++) {
-    const tx = i * 140 - ((cameraX * 1.0) % 140);
-    // Top pine tree
-    ctx.fillStyle = '#047857';
-    ctx.beginPath();
-    ctx.arc(tx + 40, 38, 28, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#34d399';
-    ctx.beginPath();
-    ctx.arc(tx + 34, 30, 14, 0, Math.PI * 2);
-    ctx.fill();
+  const span = 160;
+  const startIdx = Math.floor((cameraX - span) / span);
+  const endIdx = Math.ceil((cameraX + viewW + span) / span);
 
-    // Bottom pine tree & shoreline boulder
-    ctx.fillStyle = '#047857';
-    ctx.beginPath();
-    ctx.arc(tx + 95, GAME_H - 36, 26, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#64748b';
-    ctx.beginPath();
-    ctx.arc(tx + 30, GAME_H - 70 + Math.sin(tick * 0.04 + i) * 0.5, 16, 0, Math.PI * 2);
-    ctx.fill();
+  for (let idx = startIdx; idx <= endIdx; idx++) {
+    const tx = idx * span - cameraX;
+    const s1 = hashSeed(idx * 3.1);
+    const s2 = hashSeed(idx * 7.7);
+
+    // Varied top bank trees / boulders / waterfalls
+    if (s1 < 0.4) {
+      // Giant leafy tree
+      ctx.fillStyle = '#047857';
+      ctx.beginPath();
+      ctx.arc(tx + 46, 36, 30 + s2 * 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#34d399';
+      ctx.beginPath();
+      ctx.arc(tx + 38, 28, 15, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (s1 < 0.78) {
+      // Pine cluster
+      ctx.fillStyle = '#065f46';
+      ctx.beginPath();
+      ctx.moveTo(tx + 24, 62);
+      ctx.lineTo(tx + 48, 8);
+      ctx.lineTo(tx + 72, 62);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      // Ice-crystal canyon outcrop
+      ctx.fillStyle = '#64748b';
+      roundedRect(ctx, tx + 20, 32, 48, 42, 12);
+      ctx.fill();
+      ctx.fillStyle = '#bae6fd';
+      roundedRect(ctx, tx + 28, 36, 18, 12, 5);
+      ctx.fill();
+    }
+
+    // Varied bottom bank features
+    if (s2 < 0.5) {
+      ctx.fillStyle = '#047857';
+      ctx.beginPath();
+      ctx.arc(tx + 92, GAME_H - 36, 26 + s1 * 7, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = '#64748b';
+      ctx.beginPath();
+      ctx.arc(
+        tx + 55,
+        GAME_H - 68 + Math.sin(tick * 0.04 + idx) * 0.6,
+        18 + s1 * 6,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    }
   }
 }
 
@@ -333,7 +374,6 @@ function drawBoatObstacle(
     ctx.strokeStyle = isHeart ? '#881337' : '#78350f';
     ctx.lineWidth = 3;
     ctx.stroke();
-    // Cross plank
     ctx.beginPath();
     ctx.moveTo(x + 6, obs.y + 6);
     ctx.lineTo(x + obs.w - 6, obs.y + obs.h - 6);
@@ -368,7 +408,6 @@ function drawKennethBoat(
   ctx.translate(cx, cy);
   ctx.rotate(player.vy * 0.045);
 
-  // Speedboat Hull
   const hullGrad = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
   hullGrad.addColorStop(0, '#ef4444');
   hullGrad.addColorStop(1, '#b91c1c');
@@ -384,18 +423,15 @@ function drawKennethBoat(
   ctx.fill();
   ctx.stroke();
 
-  // Golden Racing Stripe & Cockpit
   ctx.fillStyle = '#facc15';
   roundedRect(ctx, -w / 2 + 6, -5, w - 18, 10, 4);
   ctx.fill();
 
-  // Glass Windshield
   ctx.fillStyle = '#bae6fd';
   ctx.beginPath();
   ctx.arc(6, 0, 12, -Math.PI * 0.45, Math.PI * 0.45);
   ctx.fill();
 
-  // Super-Kenneth Head + Red "K" Cap inside Boat!
   ctx.fillStyle = '#fed7aa';
   ctx.beginPath();
   ctx.arc(-6, 0, 11, 0, Math.PI * 2);
@@ -409,7 +445,6 @@ function drawKennethBoat(
   ctx.arc(-6, 0, 4.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // Glowing Aegis Shield Dome if holding Shield!
   if (player.isShielding) {
     const pulse = 0.5 + 0.5 * Math.sin(tick * 0.25);
     ctx.strokeStyle = '#38bdf8';
@@ -428,30 +463,32 @@ function renderPlatformerWorld(
   ctx: CanvasRenderingContext2D,
   engine: SuperKennethEngine
 ) {
-  const { level, player, cameraX, tick } = engine;
+  const { level, player, cameraX, tick, viewW } = engine;
   const theme = level.theme;
 
-  // 1. Sky / Cavern Backdrop Gradient
+  // 1. Sky / Cavern / Reef Backdrop Gradient
   const sky = ctx.createLinearGradient(0, 0, 0, GAME_H);
   sky.addColorStop(0, theme.skyTop);
   sky.addColorStop(0.55, theme.skyMid);
   sky.addColorStop(1, theme.skyBottom);
   ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, GAME_W, GAME_H);
+  ctx.fillRect(0, 0, viewW, GAME_H);
 
-  // 2. Parallax Landscape
+  // 2. Non-Repetitive Seeded Parallax Scenery
   if (theme.backdropStyle === 'meadow') {
-    drawMeadowParallax(ctx, cameraX, tick);
+    drawMeadowParallax(ctx, cameraX, tick, viewW);
   } else if (theme.backdropStyle === 'cavern') {
-    drawCavernParallax(ctx, cameraX, tick);
+    drawCavernParallax(ctx, cameraX, tick, viewW);
+  } else if (theme.backdropStyle === 'reef') {
+    drawReefParallax(ctx, cameraX, tick, viewW);
   } else {
-    drawSkyArchipelagoParallax(ctx, cameraX, tick);
+    drawSkyArchipelagoParallax(ctx, cameraX, tick, viewW);
   }
 
   // 3. Boss Arena Barrier Gate
   if (level.boss.active && !level.boss.defeated) {
     const gx = Math.floor(level.boss.arenaMinX - cameraX);
-    if (gx >= -20 && gx <= GAME_W + 20) {
+    if (gx >= -20 && gx <= viewW + 20) {
       const grad = ctx.createLinearGradient(gx - 8, 0, gx + 14, 0);
       grad.addColorStop(0, 'rgba(251, 191, 36, 0)');
       grad.addColorStop(0.5, 'rgba(251, 191, 36, 0.58)');
@@ -461,13 +498,34 @@ function renderPlatformerWorld(
     }
   }
 
-  // 4. Moving Platforms
+  // 4. Swinging Vines (behind/with player)
+  for (const vine of level.vines) {
+    const ax = Math.floor(vine.anchorX - cameraX);
+    if (ax < -180 || ax > viewW + 180) continue;
+    drawVine(ctx, vine, ax);
+  }
+
+  // 5. Moving Platforms
   for (const plat of level.platforms) {
     const px = Math.floor(plat.x - cameraX);
-    if (px + plat.w < -20 || px > GAME_W + 20) continue;
+    if (px + plat.w < -20 || px > viewW + 20) continue;
     const grad = ctx.createLinearGradient(px, plat.y, px, plat.y + plat.h);
-    grad.addColorStop(0, theme.backdropStyle === 'cavern' ? '#c084fc' : '#fbbf24');
-    grad.addColorStop(1, theme.backdropStyle === 'cavern' ? '#6b21a8' : '#b45309');
+    grad.addColorStop(
+      0,
+      theme.backdropStyle === 'cavern'
+        ? '#c084fc'
+        : theme.backdropStyle === 'reef'
+        ? '#f472b6'
+        : '#fbbf24'
+    );
+    grad.addColorStop(
+      1,
+      theme.backdropStyle === 'cavern'
+        ? '#6b21a8'
+        : theme.backdropStyle === 'reef'
+        ? '#be185d'
+        : '#b45309'
+    );
     ctx.fillStyle = grad;
     roundedRect(ctx, px, plat.y, plat.w, plat.h, 11);
     ctx.fill();
@@ -482,17 +540,17 @@ function renderPlatformerWorld(
     ctx.fill();
   }
 
-  // 5. Level Tiles (Smooth Cartoon Terrain)
+  // 6. Level Tiles
   for (const tile of level.tiles) {
     const tx = Math.floor(tile.x - cameraX);
-    if (tx + tile.w < -10 || tx > GAME_W + 10) continue;
+    if (tx + tile.w < -16 || tx > viewW + 16) continue;
     drawTile(ctx, tile, tx, Math.floor(tile.y + tile.bumpY), tick);
   }
 
-  // 6. Checkpoints
+  // 7. Checkpoints
   for (const cp of level.checkpoints) {
     const cx = Math.floor(cp.x - cameraX);
-    if (cx < -60 || cx > GAME_W + 60) continue;
+    if (cx < -60 || cx > viewW + 60) continue;
     ctx.fillStyle = '#e2e8f0';
     ctx.strokeStyle = '#1e293b';
     ctx.lineWidth = 2;
@@ -517,38 +575,97 @@ function renderPlatformerWorld(
     ctx.stroke();
   }
 
-  // 7. Collectibles & Chests
+  // 8. Collectibles
   for (const col of level.collectibles) {
     if (col.collected) continue;
     const cx = Math.floor(col.x - cameraX);
-    if (cx + col.w < -20 || cx > GAME_W + 20) continue;
+    if (cx + col.w < -20 || cx > viewW + 20) continue;
     drawCollectible(ctx, col, cx, tick);
   }
 
-  // 8. Enemies
+  // 9. Enemies
   for (const e of level.enemies) {
     if (!e.alive && e.squashTimer <= 0) continue;
     const ex = Math.floor(e.x - cameraX);
-    if (ex + e.w < -40 || ex > GAME_W + 40) continue;
+    if (ex + e.w < -40 || ex > viewW + 40) continue;
     drawEnemy(ctx, e, ex, tick);
   }
 
-  // 9. Boss
+  // 10. Boss
   if (!level.boss.defeated) {
     const bx = Math.floor(level.boss.x - cameraX);
-    if (bx + level.boss.w > -80 && bx < GAME_W + 140) {
+    if (bx + level.boss.w > -80 && bx < viewW + 140) {
       drawBoss(ctx, level.boss, bx, tick);
     }
   }
 
-  // 10. Projectiles
+  // 11. Projectiles
   drawProjectiles(ctx, engine);
 
-  // 11. Super-Kenneth
+  // 12. Super-Kenneth
   const blinkSkip = player.invulnTimer > 0 && Math.floor(tick / 4) % 2 === 0;
   if (!blinkSkip) {
     drawSuperKenneth(ctx, engine, Math.floor(player.x - cameraX));
   }
+}
+
+function drawVine(ctx: CanvasRenderingContext2D, vine: Vine, ax: number) {
+  const endX = ax + Math.sin(vine.angle) * vine.length;
+  const endY = vine.anchorY + Math.cos(vine.angle) * vine.length;
+  const ctrlX = (ax + endX) / 2 - Math.sin(vine.angle) * 14;
+  const ctrlY = (vine.anchorY + endY) / 2;
+
+  ctx.save();
+  // Overhead branch / canopy mount
+  ctx.fillStyle = '#065f46';
+  ctx.beginPath();
+  ctx.arc(ax, vine.anchorY, 14, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Vine stem
+  ctx.strokeStyle = '#15803d';
+  ctx.lineWidth = 8;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(ax, vine.anchorY);
+  ctx.quadraticCurveTo(ctrlX, ctrlY, endX, endY);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#4ade80';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(ax - 1, vine.anchorY);
+  ctx.quadraticCurveTo(ctrlX - 1, ctrlY, endX - 1, endY);
+  ctx.stroke();
+
+  // Leaves along the vine
+  for (let i = 1; i <= 4; i++) {
+    const t = i / 5;
+    const lx =
+      (1 - t) * (1 - t) * ax + 2 * (1 - t) * t * ctrlX + t * t * endX;
+    const ly =
+      (1 - t) * (1 - t) * vine.anchorY +
+      2 * (1 - t) * t * ctrlY +
+      t * t * endY;
+    const dir = i % 2 === 0 ? 1 : -1;
+    ctx.fillStyle = '#22c55e';
+    ctx.strokeStyle = '#14532d';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(lx + dir * 10, ly, 10, 5, dir * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // Grip handle knot at bottom
+  ctx.fillStyle = '#facc15';
+  ctx.strokeStyle = '#713f12';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(endX, endY, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawProjectiles(
@@ -557,7 +674,7 @@ function drawProjectiles(
 ) {
   for (const proj of engine.projectiles) {
     const px = Math.floor(proj.x - engine.cameraX);
-    if (px + proj.w < -40 || px > GAME_W + 40) continue;
+    if (px + proj.w < -40 || px > engine.viewW + 40) continue;
 
     ctx.save();
     ctx.translate(px + proj.w / 2, proj.y + proj.h / 2);
@@ -612,6 +729,18 @@ function drawProjectiles(
       ctx.ellipse(0, 0, 18, 9, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
+    } else if (proj.kind === 'goo_blob') {
+      ctx.fillStyle = '#f472b6';
+      ctx.strokeStyle = '#831843';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#fbcfe8';
+      ctx.beginPath();
+      ctx.arc(-4, -5, 5, 0, Math.PI * 2);
+      ctx.fill();
     } else if (proj.kind === 'stone_wave') {
       ctx.fillStyle = '#64748b';
       ctx.strokeStyle = '#0f172a';
@@ -630,71 +759,154 @@ function drawProjectiles(
 function drawMeadowParallax(
   ctx: CanvasRenderingContext2D,
   cameraX: number,
-  tick: number
+  tick: number,
+  viewW: number
 ) {
-  // Glowing Sun
-  const sunGrad = ctx.createRadialGradient(1080, 110, 14, 1080, 110, 130);
+  // Glowing Sun positioned comfortably inside wide viewports
+  const sunX = Math.max(820, viewW - 220);
+  const sunGrad = ctx.createRadialGradient(sunX, 108, 14, sunX, 108, 130);
   sunGrad.addColorStop(0, '#fef08a');
   sunGrad.addColorStop(0.45, 'rgba(253, 224, 71, 0.42)');
   sunGrad.addColorStop(1, 'rgba(253, 224, 71, 0)');
   ctx.fillStyle = sunGrad;
   ctx.beginPath();
-  ctx.arc(1080, 110, 130, 0, Math.PI * 2);
+  ctx.arc(sunX, 108, 130, 0, Math.PI * 2);
   ctx.fill();
 
-  // Volumetric Cartoon Clouds
-  for (let i = 0; i < 8; i++) {
-    const cx = ((i * 320 - cameraX * 0.14 + tick * 0.16) % (GAME_W + 400)) - 140;
-    const cy = 78 + (i % 3) * 46;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  // Varied Clouds
+  const cloudSpan = 340;
+  const cCam = cameraX * 0.12 - tick * 0.14;
+  const cStart = Math.floor((cCam - cloudSpan) / cloudSpan);
+  const cEnd = Math.ceil((cCam + viewW + cloudSpan) / cloudSpan);
+  for (let i = cStart; i <= cEnd; i++) {
+    const cx = i * cloudSpan - cCam;
+    const s = hashSeed(i * 5.3);
+    const cy = 62 + s * 95;
+    const scale = 0.78 + hashSeed(i * 9.1) * 0.55;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
     ctx.beginPath();
-    ctx.arc(cx, cy, 26, 0, Math.PI * 2);
-    ctx.arc(cx + 28, cy - 12, 34, 0, Math.PI * 2);
-    ctx.arc(cx + 60, cy, 26, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 24 * scale, 0, Math.PI * 2);
+    ctx.arc(cx + 26 * scale, cy - 11 * scale, 32 * scale, 0, Math.PI * 2);
+    ctx.arc(cx + 56 * scale, cy, 24 * scale, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Snow-capped Cartoon Mountains
-  for (let i = -1; i < 6; i++) {
-    const mx = i * 380 - ((cameraX * 0.2) % 380);
-    ctx.fillStyle = 'rgba(14, 116, 144, 0.42)';
+  // Non-Repetitive Varied Mountains (different heights, twin peaks, widths)
+  const mSpan = 410;
+  const mCam = cameraX * 0.2;
+  const mStart = Math.floor((mCam - mSpan) / mSpan);
+  const mEnd = Math.ceil((mCam + viewW + mSpan) / mSpan);
+  for (let i = mStart; i <= mEnd; i++) {
+    const mx = i * mSpan - mCam;
+    const s1 = hashSeed(i * 11.7);
+    const s2 = hashSeed(i * 23.4);
+    const peakY = 195 + s1 * 140;
+    const width = 320 + s2 * 170;
+    const peakX = mx + width * (0.42 + s1 * 0.16);
+
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(14, 116, 144, 0.42)' : 'rgba(15, 118, 110, 0.36)';
     ctx.beginPath();
-    ctx.moveTo(mx, GAME_H);
-    ctx.quadraticCurveTo(mx + 130, 310, mx + 190, 265);
-    ctx.quadraticCurveTo(mx + 250, 310, mx + 380, GAME_H);
+    ctx.moveTo(mx - 20, GAME_H);
+    ctx.quadraticCurveTo(peakX - width * 0.16, peakY + 42, peakX, peakY);
+    ctx.quadraticCurveTo(peakX + width * 0.18, peakY + 46, mx + width + 20, GAME_H);
     ctx.closePath();
     ctx.fill();
-    // Snow Peak
-    ctx.fillStyle = 'rgba(248, 250, 252, 0.55)';
-    ctx.beginPath();
-    ctx.moveTo(mx + 150, 322);
-    ctx.lineTo(mx + 190, 265);
-    ctx.lineTo(mx + 230, 322);
-    ctx.quadraticCurveTo(mx + 190, 305, mx + 150, 322);
-    ctx.fill();
+
+    // Optional secondary ridge shoulder
+    if (s2 > 0.45) {
+      const subPeakX = mx + width * 0.76;
+      const subPeakY = peakY + 75;
+      ctx.fillStyle = 'rgba(14, 116, 144, 0.3)';
+      ctx.beginPath();
+      ctx.moveTo(peakX - 10, GAME_H);
+      ctx.lineTo(subPeakX, subPeakY);
+      ctx.lineTo(mx + width + 60, GAME_H);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Snow cap on taller mountains
+    if (peakY < 285) {
+      ctx.fillStyle = 'rgba(248, 250, 252, 0.58)';
+      ctx.beginPath();
+      ctx.moveTo(peakX - 42, peakY + 58);
+      ctx.lineTo(peakX, peakY);
+      ctx.lineTo(peakX + 44, peakY + 58);
+      ctx.quadraticCurveTo(peakX, peakY + 42, peakX - 42, peakY + 58);
+      ctx.fill();
+    }
   }
 
-  // Rolling Emerald Hills, Waterfalls & Cartoon Pine Trees
-  for (let i = -1; i < 6; i++) {
-    const hx = i * 340 - ((cameraX * 0.36) % 340);
-    const hillGrad = ctx.createLinearGradient(0, 420, 0, GAME_H);
-    hillGrad.addColorStop(0, '#34d399');
+  // Rolling Hills, Giant Oak Trees, Pine Groves, Ruins & Waterfalls (varied per segment!)
+  const hSpan = 310;
+  const hCam = cameraX * 0.36;
+  const hStart = Math.floor((hCam - hSpan) / hSpan);
+  const hEnd = Math.ceil((hCam + viewW + hSpan) / hSpan);
+  for (let i = hStart; i <= hEnd; i++) {
+    const hx = i * hSpan - hCam;
+    const s1 = hashSeed(i * 17.3);
+    const s2 = hashSeed(i * 29.9);
+    const hillRadius = 175 + s1 * 75;
+    const hillCenterY = GAME_H - 18 - s2 * 30;
+
+    const hillGrad = ctx.createLinearGradient(0, 400, 0, GAME_H);
+    hillGrad.addColorStop(0, s1 > 0.5 ? '#34d399' : '#10b981');
     hillGrad.addColorStop(1, '#047857');
     ctx.fillStyle = hillGrad;
     ctx.beginPath();
-    ctx.arc(hx + 170, GAME_H - 35, 215, Math.PI, 0);
+    ctx.arc(hx + 155, hillCenterY, hillRadius, Math.PI, 0);
     ctx.fill();
 
-    // Soft distant pine silhouettes
-    ctx.fillStyle = '#065f46';
-    ctx.beginPath();
-    ctx.arc(hx + 80, 485, 22, 0, Math.PI * 2);
-    ctx.arc(hx + 106, 495, 18, 0, Math.PI * 2);
-    ctx.fill();
+    // Distinct landmarks per hill segment!
+    const topY = hillCenterY - hillRadius;
+    if (s1 < 0.28) {
+      // Giant Ancient Oak Tree
+      ctx.fillStyle = '#78350f';
+      roundedRect(ctx, hx + 110, topY + 20, 22, 110, 6);
+      ctx.fill();
+      ctx.fillStyle = '#065f46';
+      ctx.beginPath();
+      ctx.arc(hx + 121, topY + 12, 48, 0, Math.PI * 2);
+      ctx.arc(hx + 88, topY + 26, 32, 0, Math.PI * 2);
+      ctx.arc(hx + 154, topY + 26, 32, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.arc(hx + 115, topY + 4, 24, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (s1 < 0.58) {
+      // Tall Pine Trees + Bushes
+      for (let p = 0; p < 2; p++) {
+        const px = hx + 75 + p * 65;
+        const py = topY + 34 + p * 12;
+        ctx.fillStyle = '#064e3b';
+        ctx.beginPath();
+        ctx.moveTo(px - 24, py + 58);
+        ctx.lineTo(px, py - 24);
+        ctx.lineTo(px + 24, py + 58);
+        ctx.closePath();
+        ctx.fill();
+      }
+    } else if (s1 < 0.8) {
+      // Mossy Ruin Arch + Waterfall
+      ctx.fillStyle = 'rgba(100, 116, 139, 0.72)';
+      roundedRect(ctx, hx + 85, topY + 18, 16, 66, 4);
+      ctx.fill();
+      roundedRect(ctx, hx + 145, topY + 18, 16, 66, 4);
+      ctx.fill();
+      roundedRect(ctx, hx + 80, topY + 10, 86, 16, 5);
+      ctx.fill();
 
-    if (i % 2 === 0) {
-      ctx.fillStyle = 'rgba(186, 230, 253, 0.42)';
-      roundedRect(ctx, hx + 155, 480, 26, 200, 8);
+      ctx.fillStyle = 'rgba(186, 230, 253, 0.45)';
+      roundedRect(ctx, hx + 185, topY + 42, 26, 190, 8);
+      ctx.fill();
+    } else {
+      // Shrub Cluster
+      ctx.fillStyle = '#059669';
+      ctx.beginPath();
+      ctx.arc(hx + 105, topY + 38, 22, 0, Math.PI * 2);
+      ctx.arc(hx + 132, topY + 34, 26, 0, Math.PI * 2);
+      ctx.arc(hx + 160, topY + 40, 20, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -703,10 +915,12 @@ function drawMeadowParallax(
 function drawCavernParallax(
   ctx: CanvasRenderingContext2D,
   cameraX: number,
-  tick: number
+  tick: number,
+  viewW: number
 ) {
-  for (let i = 0; i < 30; i++) {
-    const sx = ((i * 197 - cameraX * 0.12) % GAME_W + GAME_W) % GAME_W;
+  const starCount = Math.ceil(viewW / 40);
+  for (let i = 0; i < starCount; i++) {
+    const sx = ((i * 197 - cameraX * 0.12) % viewW + viewW) % viewW;
     const sy = 50 + ((i * 83) % 380);
     const pulse = 0.4 + 0.6 * Math.abs(Math.sin(tick * 0.03 + i));
     ctx.fillStyle =
@@ -718,32 +932,43 @@ function drawCavernParallax(
     ctx.fill();
   }
 
-  for (let i = -1; i < 7; i++) {
-    const cx = i * 280 - ((cameraX * 0.25) % 280);
-    ctx.fillStyle = 'rgba(88, 28, 135, 0.6)';
+  const cSpan = 290;
+  const cCam = cameraX * 0.25;
+  const cStart = Math.floor((cCam - cSpan) / cSpan);
+  const cEnd = Math.ceil((cCam + viewW + cSpan) / cSpan);
+  for (let i = cStart; i <= cEnd; i++) {
+    const cx = i * cSpan - cCam;
+    const s = hashSeed(i * 19.1);
+    const peakY = 230 + s * 130;
+    const w = 85 + s * 55;
+    ctx.fillStyle = 'rgba(88, 28, 135, 0.58)';
     ctx.beginPath();
-    ctx.moveTo(cx + 30, GAME_H);
-    ctx.lineTo(cx + 85, 295);
-    ctx.lineTo(cx + 140, GAME_H);
+    ctx.moveTo(cx + 20, GAME_H);
+    ctx.lineTo(cx + 20 + w * 0.5, peakY);
+    ctx.lineTo(cx + 20 + w, GAME_H);
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = 'rgba(192, 132, 252, 0.35)';
+    ctx.fillStyle = s > 0.5 ? 'rgba(192, 132, 252, 0.35)' : 'rgba(56, 189, 248, 0.3)';
     ctx.beginPath();
-    ctx.moveTo(cx + 85, 295);
-    ctx.lineTo(cx + 140, GAME_H);
-    ctx.lineTo(cx + 95, GAME_H);
+    ctx.moveTo(cx + 20 + w * 0.5, peakY);
+    ctx.lineTo(cx + 20 + w, GAME_H);
+    ctx.lineTo(cx + 20 + w * 0.62, GAME_H);
     ctx.closePath();
     ctx.fill();
   }
 
   ctx.fillStyle = '#1e1b4b';
-  for (let i = -1; i < 12; i++) {
-    const sx = i * 140 - ((cameraX * 0.4) % 140);
-    const h = 55 + ((i * 29) % 45);
+  const sSpan = 135;
+  const sCam = cameraX * 0.4;
+  const sStart = Math.floor((sCam - sSpan) / sSpan);
+  const sEnd = Math.ceil((sCam + viewW + sSpan) / sSpan);
+  for (let i = sStart; i <= sEnd; i++) {
+    const sx = i * sSpan - sCam;
+    const h = 48 + hashSeed(i * 31.7) * 62;
     ctx.beginPath();
     ctx.moveTo(sx, 0);
-    ctx.quadraticCurveTo(sx + 38, h + 12, sx + 76, 0);
+    ctx.quadraticCurveTo(sx + 38, h + 14, sx + 76, 0);
     ctx.closePath();
     ctx.fill();
   }
@@ -752,9 +977,9 @@ function drawCavernParallax(
 function drawSkyArchipelagoParallax(
   ctx: CanvasRenderingContext2D,
   cameraX: number,
-  tick: number
+  tick: number,
+  viewW: number
 ) {
-  // Golden Sun & Halo
   const sunGrad = ctx.createRadialGradient(240, 120, 18, 240, 120, 150);
   sunGrad.addColorStop(0, '#fef9c3');
   sunGrad.addColorStop(0.5, 'rgba(253, 224, 71, 0.38)');
@@ -764,31 +989,115 @@ function drawSkyArchipelagoParallax(
   ctx.arc(240, 120, 150, 0, Math.PI * 2);
   ctx.fill();
 
-  // Floating Distant Sky Islands
-  for (let i = -1; i < 6; i++) {
-    const ix = i * 360 - ((cameraX * 0.22) % 360);
-    const iy = 340 + (i % 2) * 55 + Math.sin(tick * 0.02 + i) * 6;
+  const iSpan = 350;
+  const iCam = cameraX * 0.22;
+  const iStart = Math.floor((iCam - iSpan) / iSpan);
+  const iEnd = Math.ceil((iCam + viewW + iSpan) / iSpan);
+  for (let i = iStart; i <= iEnd; i++) {
+    const ix = i * iSpan - iCam;
+    const s = hashSeed(i * 13.7);
+    const iy = 290 + s * 110 + Math.sin(tick * 0.02 + i) * 6;
+    const iw = 120 + s * 60;
     ctx.fillStyle = 'rgba(186, 230, 253, 0.48)';
     ctx.beginPath();
     ctx.moveTo(ix, iy);
-    ctx.lineTo(ix + 140, iy);
-    ctx.quadraticCurveTo(ix + 70, iy + 70, ix, iy);
+    ctx.lineTo(ix + iw, iy);
+    ctx.quadraticCurveTo(ix + iw * 0.5, iy + 72, ix, iy);
     ctx.fill();
-    ctx.fillStyle = 'rgba(52, 211, 153, 0.45)';
-    roundedRect(ctx, ix - 4, iy - 10, 148, 16, 8);
+    ctx.fillStyle = 'rgba(52, 211, 153, 0.48)';
+    roundedRect(ctx, ix - 4, iy - 10, iw + 8, 16, 8);
     ctx.fill();
+
+    // Distant tower or tree on some floating islands
+    if (s > 0.55) {
+      ctx.fillStyle = 'rgba(248, 250, 252, 0.42)';
+      roundedRect(ctx, ix + iw * 0.35, iy - 48, 28, 38, 5);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.45)';
+      ctx.beginPath();
+      ctx.arc(ix + iw * 0.4, iy - 22, 18, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
-  // Fluffy Clouds
-  for (let i = 0; i < 9; i++) {
-    const cx = ((i * 290 - cameraX * 0.16 + tick * 0.2) % (GAME_W + 400)) - 140;
-    const cy = 90 + (i % 3) * 70;
+  const cSpan = 300;
+  const cCam = cameraX * 0.16 - tick * 0.18;
+  const cStart = Math.floor((cCam - cSpan) / cSpan);
+  const cEnd = Math.ceil((cCam + viewW + cSpan) / cSpan);
+  for (let i = cStart; i <= cEnd; i++) {
+    const cx = i * cSpan - cCam;
+    const cy = 76 + hashSeed(i * 7.1) * 140;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.86)';
     ctx.beginPath();
     ctx.arc(cx, cy, 28, 0, Math.PI * 2);
     ctx.arc(cx + 30, cy - 12, 36, 0, Math.PI * 2);
     ctx.arc(cx + 62, cy, 28, 0, Math.PI * 2);
     ctx.fill();
+  }
+}
+
+function drawReefParallax(
+  ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  tick: number,
+  viewW: number
+) {
+  // Shimmering sunbeams from ocean surface above
+  ctx.save();
+  for (let i = 0; i < 6; i++) {
+    const bx = ((i * 290 - cameraX * 0.08) % (viewW + 300) + viewW + 300) % (viewW + 300) - 100;
+    const grad = ctx.createLinearGradient(bx, 0, bx + 110, GAME_H);
+    grad.addColorStop(0, 'rgba(186, 230, 253, 0.18)');
+    grad.addColorStop(1, 'rgba(186, 230, 253, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(bx, 0);
+    ctx.lineTo(bx + 90, 0);
+    ctx.lineTo(bx + 210, GAME_H);
+    ctx.lineTo(bx + 70, GAME_H);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Giant Coral Spires & Swaying Seaweed Kelp (seeded non-repetitive)
+  const rSpan = 260;
+  const rCam = cameraX * 0.28;
+  const rStart = Math.floor((rCam - rSpan) / rSpan);
+  const rEnd = Math.ceil((rCam + viewW + rSpan) / rSpan);
+  for (let i = rStart; i <= rEnd; i++) {
+    const rx = i * rSpan - rCam;
+    const s = hashSeed(i * 15.9);
+    const sway = Math.sin(tick * 0.04 + i) * 12;
+
+    if (s < 0.5) {
+      // Swaying Kelp Forest
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.42)';
+      ctx.lineWidth = 14;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(rx + 80, GAME_H);
+      ctx.quadraticCurveTo(rx + 60 + sway, 460, rx + 90 + sway * 1.4, 290 + s * 100);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(52, 211, 153, 0.38)';
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(rx + 125, GAME_H);
+      ctx.quadraticCurveTo(rx + 145 - sway, 510, rx + 120 - sway, 370);
+      ctx.stroke();
+    } else {
+      // Glowing Coral Arch / Dome
+      ctx.fillStyle = s > 0.75 ? 'rgba(244, 114, 182, 0.32)' : 'rgba(168, 85, 247, 0.32)';
+      ctx.beginPath();
+      ctx.arc(rx + 110, GAME_H - 60, 80 + s * 40, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.26)';
+      ctx.beginPath();
+      ctx.arc(rx + 180, GAME_H - 70, 48, Math.PI, 0);
+      ctx.fill();
+    }
   }
 }
 
@@ -826,6 +1135,29 @@ function drawTile(
     roundedRect(ctx, x + 8, y + 10, 13, 9, 4);
     ctx.fill();
     roundedRect(ctx, x + 26, y + 28, 14, 9, 4);
+    ctx.fill();
+  } else if (tile.kind === 'sand') {
+    ctx.fillStyle = '#eab308';
+    ctx.fillRect(x, y, s, s);
+    ctx.fillStyle = '#ca8a04';
+    roundedRect(ctx, x + 8, y + 12, 12, 8, 4);
+    ctx.fill();
+    roundedRect(ctx, x + 28, y + 30, 10, 7, 3);
+    ctx.fill();
+  } else if (tile.kind === 'coral') {
+    ctx.fillStyle = '#0e7490';
+    ctx.fillRect(x, y + 10, s, s - 10);
+    const coralGrad = ctx.createLinearGradient(x, y, x, y + 20);
+    coralGrad.addColorStop(0, '#f472b6');
+    coralGrad.addColorStop(1, '#db2777');
+    ctx.fillStyle = coralGrad;
+    roundedRect(ctx, x - 1, y, s + 2, 18, 8);
+    ctx.fill();
+    ctx.strokeStyle = '#831843';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#fbcfe8';
+    roundedRect(ctx, x + 6, y + 3, 18, 4, 2);
     ctx.fill();
   } else if (tile.kind === 'crystal') {
     const grad = ctx.createLinearGradient(x, y, x, y + s);
@@ -918,6 +1250,33 @@ function drawTile(
     ctx.fillStyle = '#fbbf24';
     roundedRect(ctx, x + 6, y + 7, s - 12, 5, 2.5);
     ctx.fill();
+  } else if (tile.kind === 'rope_bridge') {
+    // Rope handrails + suspended wooden planks
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y - 18);
+    ctx.lineTo(x + s, y - 18);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#92400e';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + 8, y - 18);
+    ctx.lineTo(x + 8, y + 6);
+    ctx.moveTo(x + s - 8, y - 18);
+    ctx.lineTo(x + s - 8, y + 6);
+    ctx.stroke();
+
+    ctx.fillStyle = '#b45309';
+    roundedRect(ctx, x + 2, y + 2, s - 4, 18, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#451a03';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#fde68a';
+    roundedRect(ctx, x + 8, y + 5, s - 16, 4, 2);
+    ctx.fill();
   } else if (tile.kind === 'lava') {
     const wave = Math.sin(tick * 0.1 + x * 0.05) * 4;
     const grad = ctx.createLinearGradient(x, y, x, y + s);
@@ -950,6 +1309,53 @@ function drawTile(
     ctx.fillStyle = '#facc15';
     roundedRect(ctx, x + 10, y + 12 + squash, s - 20, 4, 2);
     ctx.fill();
+  } else if (tile.kind === 'jelly_pad') {
+    const bounce = tile.springAnim ? Math.sin(tile.springAnim * 0.5) * 7 : Math.sin(tick * 0.1) * 2;
+    ctx.save();
+    ctx.shadowColor = '#f472b6';
+    ctx.shadowBlur = 12;
+    // Tentacles
+    ctx.strokeStyle = '#ec4899';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 4; i++) {
+      const tx = x + 10 + i * 9;
+      ctx.beginPath();
+      ctx.moveTo(tx, y + 26 + bounce);
+      ctx.quadraticCurveTo(tx + Math.sin(tick * 0.15 + i) * 4, y + 38, tx, y + s);
+      ctx.stroke();
+    }
+    // Bouncy Jelly Dome
+    const jGrad = ctx.createLinearGradient(x, y + 6, x, y + 30);
+    jGrad.addColorStop(0, '#fbcfe8');
+    jGrad.addColorStop(1, '#db2777');
+    ctx.fillStyle = jGrad;
+    ctx.strokeStyle = '#831843';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(x + s / 2, y + 28 + bounce, 22, Math.PI, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  } else if (tile.kind === 'boost_pad') {
+    // Sonic-style Speed Boost Strip
+    ctx.save();
+    ctx.fillStyle = '#0f172a';
+    roundedRect(ctx, x + 2, y + s - 14, s - 4, 14, 6);
+    ctx.fill();
+    const glow = 0.65 + 0.35 * Math.sin(tick * 0.25);
+    ctx.strokeStyle = `rgba(250, 204, 21, ${glow})`;
+    ctx.lineWidth = 3.5;
+    ctx.lineCap = 'round';
+    for (let c = 0; c < 2; c++) {
+      const cx = x + 14 + c * 14 + ((tick * 1.4) % 8);
+      ctx.beginPath();
+      ctx.moveTo(cx - 5, y + s - 11);
+      ctx.lineTo(cx + 2, y + s - 7);
+      ctx.lineTo(cx - 5, y + s - 3);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 }
 
@@ -963,7 +1369,10 @@ function drawCollectible(
   const y = col.y + bob;
 
   if (col.kind === 'coin') {
-    const spinW = Math.max(7, Math.abs(Math.cos(tick * 0.09 + col.bobOffset)) * col.w);
+    const spinW = Math.max(
+      7,
+      Math.abs(Math.cos(tick * 0.09 + col.bobOffset)) * col.w
+    );
     const cx = x + col.w / 2;
     const cy = y + col.h / 2;
     ctx.fillStyle = '#facc15';
@@ -1125,7 +1534,12 @@ function drawEnemy(
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(x + e.w / 2, e.y + 16);
-    ctx.quadraticCurveTo(x + e.w + 4, e.y + 2 + flap, x + e.w + 8, e.y + 12 + flap);
+    ctx.quadraticCurveTo(
+      x + e.w + 4,
+      e.y + 2 + flap,
+      x + e.w + 8,
+      e.y + 12 + flap
+    );
     ctx.lineTo(x + e.w - 6, e.y + 24);
     ctx.closePath();
     ctx.fill();
@@ -1142,23 +1556,38 @@ function drawEnemy(
     ctx.arc(x + e.w / 2 - 5, e.y + 15, 3, 0, Math.PI * 2);
     ctx.arc(x + e.w / 2 + 5, e.y + 15, 3, 0, Math.PI * 2);
     ctx.fill();
-  } else if (e.kind === 'slime') {
-    const wobble = Math.sin(tick * 0.16) * 3;
+  } else if (e.kind === 'slime' || e.kind === 'gooey') {
+    const isGooey = e.kind === 'gooey';
+    const wobble = Math.sin(tick * 0.18) * 3.5;
     const grad = ctx.createLinearGradient(x, e.y, x, e.y + e.h);
-    grad.addColorStop(0, '#fb923c');
-    grad.addColorStop(1, '#dc2626');
+    grad.addColorStop(0, isGooey ? '#a855f7' : '#fb923c');
+    grad.addColorStop(1, isGooey ? '#ec4899' : '#dc2626');
     ctx.fillStyle = grad;
-    ctx.strokeStyle = '#7f1d1d';
+    ctx.strokeStyle = isGooey ? '#581c87' : '#7f1d1d';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.arc(x + e.w / 2, e.y + e.h - 4, 21 + wobble, Math.PI, 0);
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = '#fef08a';
-    ctx.beginPath();
-    ctx.arc(x + 15, e.y + 20, 3.5, 0, Math.PI * 2);
-    ctx.arc(x + 29, e.y + 20, 3.5, 0, Math.PI * 2);
-    ctx.fill();
+
+    if (isGooey) {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(x + 15, e.y + 20, 5, 0, Math.PI * 2);
+      ctx.arc(x + 29, e.y + 20, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(x + 15, e.y + 20, 2.5, 0, Math.PI * 2);
+      ctx.arc(x + 29, e.y + 20, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.arc(x + 15, e.y + 20, 3.5, 0, Math.PI * 2);
+      ctx.arc(x + 29, e.y + 20, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   ctx.restore();
@@ -1181,17 +1610,20 @@ function drawBoss(
   ctx.strokeStyle = '#0f172a';
   ctx.lineWidth = 3.5;
 
-  if (boss.kind === 'beetle_king') {
+  if (boss.kind === 'beetle_king' || boss.kind === 'goo_king') {
+    const isGoo = boss.kind === 'goo_king';
+    const wobble = isGoo ? Math.sin(tick * 0.16) * 5 : 0;
     const shellGrad = ctx.createLinearGradient(x, boss.y, x, boss.y + boss.h);
-    shellGrad.addColorStop(0, '#10b981');
-    shellGrad.addColorStop(1, '#064e3b');
+    shellGrad.addColorStop(0, isGoo ? '#f472b6' : '#10b981');
+    shellGrad.addColorStop(1, isGoo ? '#7e22ce' : '#064e3b');
     ctx.fillStyle = shellGrad;
     ctx.beginPath();
-    ctx.arc(cx, boss.y + boss.h - 16, boss.w * 0.48, Math.PI, 0);
+    ctx.arc(cx, boss.y + boss.h - 16, boss.w * 0.48 + wobble, Math.PI, 0);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
+    // Crown
     ctx.fillStyle = '#facc15';
     ctx.beginPath();
     ctx.moveTo(cx - 22, boss.y + 18);
@@ -1206,24 +1638,35 @@ function drawBoss(
     ctx.stroke();
 
     const faceOffset = boss.facingRight ? 18 : -18;
-    ctx.fillStyle = '#fef08a';
-    roundedRect(ctx, cx + faceOffset - 13, boss.y + 42, 26, 15, 6);
+    ctx.fillStyle = isGoo ? '#ffffff' : '#fef08a';
+    roundedRect(ctx, cx + faceOffset - 15, boss.y + 40, 30, 17, 7);
     ctx.fill();
-    ctx.fillStyle = '#dc2626';
+    ctx.fillStyle = isGoo ? '#0f172a' : '#dc2626';
     ctx.beginPath();
-    ctx.arc(cx + faceOffset - 4, boss.y + 49, 4, 0, Math.PI * 2);
-    ctx.arc(cx + faceOffset + 6, boss.y + 49, 4, 0, Math.PI * 2);
+    ctx.arc(cx + faceOffset - 5, boss.y + 49, 4.5, 0, Math.PI * 2);
+    ctx.arc(cx + faceOffset + 6, boss.y + 49, 4.5, 0, Math.PI * 2);
     ctx.fill();
 
-    const step = Math.sin(tick * 0.2) * 5;
-    ctx.fillStyle = '#f59e0b';
-    roundedRect(ctx, x + 14, boss.y + boss.h - 18 + step, 22, 18, 7);
-    ctx.fill();
-    roundedRect(ctx, x + boss.w - 36, boss.y + boss.h - 18 - step, 22, 18, 7);
-    ctx.fill();
+    if (isGoo) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.beginPath();
+      ctx.ellipse(cx - 22, boss.y + 34, 12, 7, -0.4, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      const step = Math.sin(tick * 0.2) * 5;
+      ctx.fillStyle = '#f59e0b';
+      roundedRect(ctx, x + 14, boss.y + boss.h - 18 + step, 22, 18, 7);
+      ctx.fill();
+      roundedRect(ctx, x + boss.w - 36, boss.y + boss.h - 18 - step, 22, 18, 7);
+      ctx.fill();
+    }
   } else if (boss.kind === 'ice_leviathan') {
-    // Top-Down Armored Ice Dreadnought Boss
-    const hullGrad = ctx.createLinearGradient(x, boss.y, x + boss.w, boss.y + boss.h);
+    const hullGrad = ctx.createLinearGradient(
+      x,
+      boss.y,
+      x + boss.w,
+      boss.y + boss.h
+    );
     hullGrad.addColorStop(0, '#38bdf8');
     hullGrad.addColorStop(1, '#1e3a8a');
     ctx.fillStyle = hullGrad;
@@ -1236,7 +1679,6 @@ function drawBoss(
     ctx.fill();
     ctx.stroke();
 
-    // Ice Spikes & Glowing Cannon Core
     ctx.fillStyle = '#e0f2fe';
     roundedRect(ctx, cx - 10, boss.y + 24, 34, boss.h - 48, 12);
     ctx.fill();
@@ -1247,7 +1689,6 @@ function drawBoss(
     ctx.fill();
     ctx.stroke();
   } else {
-    // Lava Dragon Ignis OR Storm Griffin Zephyr
     const isGriffin = boss.kind === 'storm_griffin';
     const flap = Math.sin(tick * 0.22) * 20;
     ctx.fillStyle = isGriffin ? '#0284c7' : '#b91c1c';
@@ -1306,10 +1747,15 @@ function drawSuperKenneth(
   const hasGloves = engine.hasTool('power_gloves');
   const hasTurbo = engine.hasTool('turbo_boots');
   const hasSword = engine.hasTool('sun_sword');
+  const onVine = player.grabbedVineId !== null;
 
   ctx.save();
   const centerX = x + w / 2;
   ctx.translate(centerX, y);
+  if (onVine) {
+    const vine = engine.level.vines.find((v) => v.id === player.grabbedVineId);
+    if (vine) ctx.rotate(-vine.angle * 0.45);
+  }
   if (!player.facingRight) {
     ctx.scale(-1, 1);
   }
@@ -1319,7 +1765,7 @@ function drawSuperKenneth(
       ? Math.sin(player.animTimer * 1.4) * 7
       : 0;
 
-  // Flowing Hero Cape with soft cartoon outline
+  // Flowing Hero Cape
   ctx.fillStyle = '#dc2626';
   ctx.strokeStyle = '#7f1d1d';
   ctx.lineWidth = 2;
@@ -1380,7 +1826,7 @@ function drawSuperKenneth(
   ctx.fill();
   ctx.stroke();
 
-  // Expressive Eye
+  // Eye
   ctx.fillStyle = '#0f172a';
   ctx.beginPath();
   ctx.ellipse(6, headY + 12, 2.8, 4, 0, 0, Math.PI * 2);
@@ -1416,8 +1862,15 @@ function drawSuperKenneth(
   ctx.textAlign = 'center';
   ctx.fillText('K', 2, headY + 4);
 
-  // Punch / Sun Blade Arm
-  if (player.attackTimer > 0) {
+  // Arms (raised when swinging on vine!)
+  if (onVine) {
+    ctx.fillStyle = hasGloves ? '#f97316' : '#fed7aa';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2;
+    roundedRect(ctx, -4, -4, 10, 20, 5);
+    ctx.fill();
+    ctx.stroke();
+  } else if (player.attackTimer > 0) {
     if (hasSword) {
       ctx.save();
       ctx.shadowColor = '#facc15';
@@ -1444,12 +1897,18 @@ function drawSuperKenneth(
     ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(10 - runWave * 0.4, h * 0.56, hasGloves ? 7.5 : 5.5, 0, Math.PI * 2);
+    ctx.arc(
+      10 - runWave * 0.4,
+      h * 0.56,
+      hasGloves ? 7.5 : 5.5,
+      0,
+      Math.PI * 2
+    );
     ctx.fill();
     ctx.stroke();
   }
 
-  // Glowing Aegis Shield Barrier when Shielding!
+  // Glowing Aegis Shield
   if (player.isShielding) {
     const pulse = 0.5 + 0.5 * Math.sin(tick * 0.25);
     ctx.strokeStyle = '#38bdf8';

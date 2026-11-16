@@ -60,9 +60,9 @@ export const Overlays: React.FC<OverlaysProps> = ({
   const t = TEXTS[lang];
 
   return (
-    <div className="absolute inset-0 z-30 bg-slate-950/82 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div className="absolute inset-0 z-30 bg-slate-950/82 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-6 overflow-y-auto">
       {screen === 'TITLE_MENU' && (
-        <div className="w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-2xl p-5 sm:p-8 shadow-2xl my-auto">
+        <div className="w-full max-w-4xl max-h-[94dvh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-8 shadow-2xl my-auto">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-8 items-center">
             <div className="md:col-span-7 space-y-4">
               <div className="flex items-center justify-between gap-2">
@@ -190,7 +190,7 @@ export const Overlays: React.FC<OverlaysProps> = ({
       )}
 
       {screen === 'WORLD_MAP' && (
-        <div className="w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-2xl p-5 sm:p-8 shadow-2xl space-y-5 my-auto">
+        <div className="w-full max-w-4xl max-h-[94dvh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-8 shadow-2xl space-y-4 sm:space-y-5 my-auto">
           <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-white">
@@ -259,7 +259,7 @@ export const Overlays: React.FC<OverlaysProps> = ({
       )}
 
       {screen === 'CHANGELOG' && (
-        <div className="w-full max-w-3xl bg-slate-900 border border-slate-700 rounded-2xl p-5 sm:p-8 shadow-2xl space-y-5 my-auto">
+        <div className="w-full max-w-3xl max-h-[94dvh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-8 shadow-2xl space-y-4 sm:space-y-5 my-auto">
           <div className="flex items-center justify-between gap-4">
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-white">
               {t.changelogTitle}
@@ -304,7 +304,7 @@ export const Overlays: React.FC<OverlaysProps> = ({
       )}
 
       {screen === 'PAUSED' && (
-        <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-6 text-center space-y-4 shadow-2xl my-auto">
+        <div className="w-full max-w-md max-h-[94dvh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl p-5 sm:p-6 text-center space-y-4 shadow-2xl my-auto">
           <h2 className="font-display text-3xl font-bold text-white">
             {t.pausedTitle}
           </h2>
@@ -332,18 +332,25 @@ export const Overlays: React.FC<OverlaysProps> = ({
             >
               {t.backToMap}
             </button>
+            <button
+              type="button"
+              onClick={onBackToTitle}
+              className="w-full py-2.5 rounded-xl bg-slate-800/70 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs cursor-pointer"
+            >
+              {t.backToTitle}
+            </button>
           </div>
         </div>
       )}
 
       {screen === 'LEVEL_CLEAR' && (
-        <div className="w-full max-w-lg bg-slate-900 border border-emerald-500/60 rounded-2xl p-6 sm:p-7 text-center space-y-5 shadow-2xl my-auto">
+        <div className="w-full max-w-lg max-h-[94dvh] overflow-y-auto bg-slate-900 border border-emerald-500/60 rounded-2xl p-5 sm:p-7 text-center space-y-4 sm:space-y-5 shadow-2xl my-auto">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/20 border border-emerald-400 flex items-center justify-center">
             <Crown className="w-8 h-8 text-amber-400" />
           </div>
           <div>
             <p className="text-sm font-bold text-emerald-400">
-              {t.levelClearBadge} ({levelIndex + 1}/4)
+              {t.levelClearBadge} ({levelIndex + 1}/5)
             </p>
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mt-1">
               {t.levelClearTitle}
