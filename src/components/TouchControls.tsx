@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
   ArrowUp,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Flame,
+  Hammer,
   Hand,
-  Shield,
+  Rocket,
   ShieldCheck,
   Sparkles,
   Sword,
@@ -29,9 +32,55 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
 }) => {
   const t = TEXTS[lang];
   const hasSword = tools.includes('sun_sword');
+  const hasHammer = tools.includes('thunder_hammer');
+  const hasFire = tools.includes('fire_blaster');
   const hasBoomerang = tools.includes('star_boomerang');
+  const hasRocket = tools.includes('rocket_pod');
   const hasShield = tools.includes('aegis_shield');
-  const isBoat = mode === 'topdown_boat';
+  const isVehicle = mode !== 'platformer';
+  const isBalloon = mode === 'balloon_flight';
+  const isJet = mode === 'jet_shooter';
+
+  const padRef = useRef<HTMLDivElement | null>(null);
+  const activePointerRef = useRef<number | null>(null);
+  const [knob, setKnob] = useState({ x: 0, y: 0, active: false });
+
+  const updateStickFromPointer = (clientX: number, clientY: number) => {
+    const pad = padRef.current;
+    if (!pad) return;
+    const rect = pad.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const maxR = rect.width * 0.38;
+
+    const rawDx = clientX - cx;
+    const rawDy = clientY - cy;
+    const dist = Math.hypot(rawDx, rawDy);
+    const clampedDist = Math.min(dist, maxR);
+    const angle = Math.atan2(rawDy, rawDx);
+
+    const kx = dist > 0 ? Math.cos(angle) * clampedDist : 0;
+    const ky = dist > 0 ? Math.sin(angle) * clampedDist : 0;
+    setKnob({ x: kx, y: ky, active: true });
+
+    const nx = maxR > 0 ? kx / maxR : 0;
+    const ny = maxR > 0 ? ky / maxR : 0;
+
+    // 8-way diagonal steering: down + left/right triggers crouch-crawling simultaneously!
+    inputRef.current.left = nx < -0.25;
+    inputRef.current.right = nx > 0.25;
+    inputRef.current.down = ny > 0.28;
+    inputRef.current.up = ny < -0.32;
+  };
+
+  const resetStick = () => {
+    activePointerRef.current = null;
+    setKnob({ x: 0, y: 0, active: false });
+    inputRef.current.left = false;
+    inputRef.current.right = false;
+    inputRef.current.down = false;
+    inputRef.current.up = false;
+  };
 
   const bindHold = (
     onStart: () => void,
@@ -55,121 +104,73 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
     onLostPointerCapture: () => onEnd(),
   });
 
-  const dpadBtn =
-    'w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-slate-950/35 active:bg-sky-500/60 border border-white/25 backdrop-blur-[2px] text-white/95 flex items-center justify-center shadow-md cursor-pointer transition-colors';
+  const ghostBtnBase =
+    'rounded-full bg-white/[0.05] active:bg-white/25 border border-white/25 active:border-white/60 text-white/85 flex items-center justify-center cursor-pointer transition-all active:scale-95 shadow-sm';
 
   return (
     <div
-      className="absolute inset-x-0 bottom-0 z-20 pointer-events-none flex items-end justify-between px-3 sm:px-6 pb-3 sm:pb-5 select-none"
+      className="absolute inset-x-0 bottom-0 z-20 pointer-events-none flex items-end justify-between px-3 sm:px-5 pb-3 sm:pb-4 select-none"
       style={{ touchAction: 'none' }}
     >
-      {/* BOTTOM-LEFT: Semi-transparent D-Pad Cross (Up, Left, Center Hub, Right, Down/Crouch) */}
-      <div className="pointer-events-auto grid grid-cols-3 gap-1.5 items-center justify-items-center">
-        <div />
-        <button
-          type="button"
-          aria-label={t.btnUp}
-          className={dpadBtn}
-          {...bindHold(
-            () => {
-              inputRef.current.up = true;
-            },
-            () => {
-              inputRef.current.up = false;
-            }
-          )}
-        >
-          <ArrowUp className="w-6 h-6" />
-        </button>
-        <div />
+      {/* BOTTOM-LEFT: Compact Circular Analog-Style Joystick (supports diagonal crawl!) */}
+      <div
+        ref={padRef}
+        role="application"
+        aria-label="Steuerkreis"
+        onPointerDown={(e) => {
+          e.preventDefault();
+          soundEngine.unlock();
+          activePointerRef.current = e.pointerId;
+          try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+          } catch {
+            // Ignore capture errors
+          }
+          updateStickFromPointer(e.clientX, e.clientY);
+        }}
+        onPointerMove={(e) => {
+          if (activePointerRef.current !== e.pointerId) return;
+          e.preventDefault();
+          updateStickFromPointer(e.clientX, e.clientY);
+        }}
+        onPointerUp={(e) => {
+          if (activePointerRef.current !== e.pointerId) return;
+          e.preventDefault();
+          resetStick();
+        }}
+        onPointerCancel={resetStick}
+        onLostPointerCapture={resetStick}
+        className="pointer-events-auto relative w-[104px] h-[104px] sm:w-[114px] sm:h-[114px] rounded-full bg-white/[0.04] border border-white/22 flex items-center justify-center cursor-pointer"
+        style={{ touchAction: 'none' }}
+      >
+        {/* Subtle cardinal direction ticks */}
+        <ChevronUp className="absolute top-1.5 left-1/2 -translate-x-1/2 w-3.5 h-3.5 text-white/35 pointer-events-none" />
+        <ChevronDown className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-3.5 h-3.5 text-white/35 pointer-events-none" />
+        <ChevronLeft className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/35 pointer-events-none" />
+        <ChevronRight className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/35 pointer-events-none" />
 
-        <button
-          type="button"
-          aria-label={t.btnLeft}
-          className={dpadBtn}
-          {...bindHold(
-            () => {
-              inputRef.current.left = true;
-            },
-            () => {
-              inputRef.current.left = false;
-            }
-          )}
-        >
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-
-        {/* Center D-Pad Button (Shield if unlocked, otherwise quick Crouch/Hub) */}
-        <button
-          type="button"
-          aria-label={hasShield ? t.btnShield : t.btnDown}
-          className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-slate-950/30 active:bg-cyan-500/55 border border-white/20 backdrop-blur-[2px] text-white/80 flex items-center justify-center cursor-pointer"
-          {...bindHold(
-            () => {
-              if (hasShield) {
-                inputRef.current.shieldHeld = true;
-              } else {
-                inputRef.current.down = true;
-              }
-            },
-            () => {
-              inputRef.current.shieldHeld = false;
-              inputRef.current.down = false;
-            }
-          )}
-        >
-          {hasShield ? (
-            <Shield className="w-4 h-4 text-sky-300" />
-          ) : (
-            <span className="w-3 h-3 rounded-full bg-white/40" />
-          )}
-        </button>
-
-        <button
-          type="button"
-          aria-label={t.btnRight}
-          className={dpadBtn}
-          {...bindHold(
-            () => {
-              inputRef.current.right = true;
-            },
-            () => {
-              inputRef.current.right = false;
-            }
-          )}
-        >
-          <ArrowRight className="w-6 h-6" />
-        </button>
-
-        <div />
-        <button
-          type="button"
-          aria-label={isBoat ? t.btnBoatDown : t.btnDown}
-          className={dpadBtn}
-          {...bindHold(
-            () => {
-              inputRef.current.down = true;
-            },
-            () => {
-              inputRef.current.down = false;
-            }
-          )}
-        >
-          <ArrowDown className="w-6 h-6" />
-        </button>
-        <div />
+        {/* Movable inner thumb knob */}
+        <div
+          className={`w-10 h-10 rounded-full border pointer-events-none transition-colors ${
+            knob.active
+              ? 'bg-white/28 border-white/60'
+              : 'bg-white/12 border-white/35'
+          }`}
+          style={{
+            transform: `translate(${knob.x}px, ${knob.y}px)`,
+          }}
+        />
       </div>
 
-      {/* BOTTOM-RIGHT: Semi-transparent Round Action Buttons */}
+      {/* BOTTOM-RIGHT: Compact Ultra-Transparent Ghost Action Buttons */}
       <div className="pointer-events-auto flex flex-col items-end gap-2">
-        {/* Top Row: Optional Special Tool Buttons */}
-        {(hasBoomerang || isBoat || hasShield) && (
-          <div className="flex items-center gap-2 pr-1">
+        {(hasBoomerang || hasRocket || isVehicle || hasShield) && (
+          <div className="flex items-center gap-2 pr-0.5">
             {hasShield && (
               <button
                 type="button"
                 aria-label={t.btnShield}
-                className="w-12 h-12 sm:w-13 sm:h-13 rounded-full bg-sky-500/40 active:bg-sky-500/75 border-2 border-white/30 backdrop-blur-[2px] text-white flex flex-col items-center justify-center shadow-md cursor-pointer"
+                className={`w-10 h-10 sm:w-11 sm:h-11 ${ghostBtnBase}`}
                 {...bindHold(
                   () => {
                     inputRef.current.shieldHeld = true;
@@ -179,18 +180,21 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
                   }
                 )}
               >
-                <ShieldCheck className="w-5 h-5" />
-                <span className="text-[8px] font-bold leading-none mt-0.5">
-                  {t.btnShield}
-                </span>
+                <ShieldCheck className="w-4 h-4 drop-shadow" />
               </button>
             )}
 
-            {(hasBoomerang || isBoat) && (
+            {(hasBoomerang || hasRocket || isVehicle) && (
               <button
                 type="button"
-                aria-label={isBoat ? t.btnShot : t.btnBoomerang}
-                className="w-12 h-12 sm:w-13 sm:h-13 rounded-full bg-amber-500/45 active:bg-amber-500/80 border-2 border-white/30 backdrop-blur-[2px] text-white flex flex-col items-center justify-center shadow-md cursor-pointer"
+                aria-label={
+                  hasRocket || isJet
+                    ? t.btnRocket
+                    : isVehicle
+                    ? t.btnShot
+                    : t.btnBoomerang
+                }
+                className={`w-10 h-10 sm:w-11 sm:h-11 ${ghostBtnBase}`}
                 {...bindHold(
                   () => {
                     inputRef.current.toolJustPressed = true;
@@ -198,21 +202,21 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
                   () => {}
                 )}
               >
-                <Sparkles className="w-5 h-5" />
-                <span className="text-[8px] font-bold leading-none mt-0.5">
-                  {isBoat ? t.btnShot : t.btnBoomerang}
-                </span>
+                {hasRocket || isJet ? (
+                  <Rocket className="w-4 h-4 drop-shadow" />
+                ) : (
+                  <Sparkles className="w-4 h-4 drop-shadow" />
+                )}
               </button>
             )}
           </div>
         )}
 
-        {/* Bottom Row: Primary Jump + Punch/Sword */}
-        <div className="flex items-end gap-2.5 sm:gap-3">
+        <div className="flex items-end gap-2.5">
           <button
             type="button"
-            aria-label={isBoat ? t.btnShot : hasSword ? t.btnSword : t.btnPunch}
-            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-purple-600/45 active:bg-purple-500/80 border-2 border-white/35 backdrop-blur-[2px] text-white flex flex-col items-center justify-center shadow-lg cursor-pointer"
+            aria-label={isVehicle ? t.btnShot : hasSword ? t.btnSword : t.btnPunch}
+            className={`w-11 h-11 sm:w-12 sm:h-12 ${ghostBtnBase}`}
             {...bindHold(
               () => {
                 inputRef.current.attackJustPressed = true;
@@ -220,20 +224,23 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
               () => {}
             )}
           >
-            {hasSword ? (
-              <Sword className="w-6 h-6" />
+            {isVehicle || hasFire ? (
+              <Flame className="w-5 h-5 drop-shadow" />
+            ) : hasHammer ? (
+              <Hammer className="w-5 h-5 drop-shadow" />
+            ) : hasSword ? (
+              <Sword className="w-5 h-5 drop-shadow" />
             ) : (
-              <Hand className="w-6 h-6" />
+              <Hand className="w-5 h-5 drop-shadow" />
             )}
-            <span className="text-[9px] font-bold leading-none mt-0.5">
-              {isBoat ? t.btnShot : hasSword ? t.btnSword : t.btnPunch}
-            </span>
           </button>
 
           <button
             type="button"
-            aria-label={isBoat ? t.btnBoost : t.btnJump}
-            className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-rose-600/50 active:bg-rose-500/85 border-2 border-white/40 backdrop-blur-[2px] text-white flex flex-col items-center justify-center shadow-lg cursor-pointer"
+            aria-label={
+              isBalloon ? t.btnBurner : isVehicle ? t.btnBoost : t.btnJump
+            }
+            className={`w-12 h-12 sm:w-14 sm:h-14 ${ghostBtnBase}`}
             {...bindHold(
               () => {
                 if (!inputRef.current.jumpHeld) {
@@ -246,10 +253,11 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
               }
             )}
           >
-            <ArrowUp className="w-7 h-7" />
-            <span className="text-[10px] font-bold leading-none mt-0.5">
-              {isBoat ? t.btnBoost : t.btnJump}
-            </span>
+            {isBalloon ? (
+              <Flame className="w-6 h-6 drop-shadow" />
+            ) : (
+              <ArrowUp className="w-6 h-6 drop-shadow" />
+            )}
           </button>
         </div>
       </div>

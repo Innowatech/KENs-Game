@@ -98,6 +98,71 @@ export const WORLD_ROADMAP: WorldCardInfo[] = [
     bossNameEn: 'Goo-King Gloop',
     accent: '#f472b6',
   },
+  {
+    id: 5,
+    mode: 'platformer',
+    worldCodeDe: 'Welt 6 · Dschungel',
+    worldCodeEn: 'World 6 · Jungle',
+    titleDe: 'Wilder Urwald & Tempel-Rutschen',
+    titleEn: 'Wild Jungle & Temple Slides',
+    landscapeDe: 'Baumhaus-Leitern, Moos-Rutschen, Lianen-Ketten & Feuer-Blaster',
+    landscapeEn: 'Treehouse ladders, moss slides, vine chains & Fire Blaster',
+    bossNameDe: 'Dschungel-Wächter Konga',
+    bossNameEn: 'Jungle Guardian Konga',
+    accent: '#22c55e',
+  },
+  {
+    id: 6,
+    mode: 'platformer',
+    worldCodeDe: 'Welt 7 · Berg',
+    worldCodeEn: 'World 7 · Mountain',
+    titleDe: 'Eisgipfel-Aufstieg & Schnee-Grat',
+    titleEn: 'Ice Peak Climb & Snow Ridge',
+    landscapeDe: 'Kletterwände hochsteigen, Eis-Rutschen, Hängebrücken & Donner-Hammer',
+    landscapeEn: 'Climb up mountain walls, icy slides, rope bridges & Thunder Hammer',
+    bossNameDe: 'Gipfel-Yeti Frosthorn',
+    bossNameEn: 'Summit Yeti Frosthorn',
+    accent: '#38bdf8',
+  },
+  {
+    id: 7,
+    mode: 'balloon_flight',
+    worldCodeDe: 'Welt 8 · Ballon',
+    worldCodeEn: 'World 8 · Balloon',
+    titleDe: 'Wolkenmeer & Heißluftballon',
+    titleEn: 'Cloud Sea & Hot-Air Balloon',
+    landscapeDe: 'Mit Brenner-Schub schweben, Goldringe sammeln & Gewittern ausweichen',
+    landscapeEn: 'Float with burner boost, collect gold rings & dodge storm clouds',
+    bossNameDe: 'Sturm-Zeppelin Nimbus',
+    bossNameEn: 'Storm Zeppelin Nimbus',
+    accent: '#fb923c',
+  },
+  {
+    id: 8,
+    mode: 'plane_shooter',
+    worldCodeDe: 'Welt 9 · Flieger',
+    worldCodeEn: 'World 9 · Biplane',
+    titleDe: 'Sonnen-Schlucht & Propeller-Flieger',
+    titleEn: 'Sun Canyon & Stunt Biplane',
+    landscapeDe: 'Durch Sonic-Ringe fliegen, Kisten abschießen & Stern-Raketen finden',
+    landscapeEn: 'Fly through Sonic rings, blast crates & unlock Star Rockets',
+    bossNameDe: 'Wolken-Fregatte Baron Blitz',
+    bossNameEn: 'Sky Frigate Baron Blitz',
+    accent: '#ef4444',
+  },
+  {
+    id: 9,
+    mode: 'jet_shooter',
+    worldCodeDe: 'Welt 10 · Kampfjet',
+    worldCodeEn: 'World 10 · Jet',
+    titleDe: 'Stratosphäre & Raketen-Kampfjet',
+    titleEn: 'Stratosphere & Rocket Fighter Jet',
+    landscapeDe: 'Überschall-Jet mit Laser-Kanone & zielsuchenden Raketen im Weltall',
+    landscapeEn: 'Supersonic jet with twin lasers & homing rockets in upper space',
+    bossNameDe: 'Mega-Luftschiff Titan-X',
+    bossNameEn: 'Mega Dreadnought Titan-X',
+    accent: '#a855f7',
+  },
 ];
 
 class LevelBuilder {
@@ -169,6 +234,28 @@ class LevelBuilder {
       angle: 0.25,
       angVel: 0,
     });
+  }
+
+  public addLadder(col: number, topRow: number, bottomRow: number) {
+    for (let r = topRow; r <= bottomRow; r++) {
+      this.addTile(col, r, 'ladder');
+    }
+  }
+
+  public addSlideRight(startCol: number, startRow: number, steps: number) {
+    for (let i = 0; i < steps; i++) {
+      this.addTile(startCol + i, startRow + i, 'slide_right');
+    }
+  }
+
+  public addSlideLeft(startCol: number, startRow: number, steps: number) {
+    for (let i = 0; i < steps; i++) {
+      this.addTile(startCol - i, startRow + i, 'slide_left');
+    }
+  }
+
+  public addBumper(col: number, row: number) {
+    this.addTile(col, row, 'bumper');
   }
 
   public addPlatform(
@@ -345,6 +432,9 @@ class LevelBuilder {
       mine: { w: 42, h: 42, hp: 1 },
       crate: { w: 46, h: 46, hp: 1 },
       heart_crate: { w: 48, h: 48, hp: 1 },
+      storm_cloud: { w: 72, h: 58, hp: 99 },
+      ring_gate: { w: 54, h: 96, hp: 99 },
+      asteroid: { w: 56, h: 56, hp: 1 },
     };
     const s = sizes[kind];
     this.boatObstacles.push({
@@ -395,7 +485,12 @@ export function createLevel(levelIndex: number): LevelDefinition {
   if (levelIndex === 1) return buildLevel2();
   if (levelIndex === 2) return buildLevel3Boat();
   if (levelIndex === 3) return buildLevel4Sky();
-  return buildLevel5Reef();
+  if (levelIndex === 4) return buildLevel5Reef();
+  if (levelIndex === 5) return buildLevel6Jungle();
+  if (levelIndex === 6) return buildLevel7Mountain();
+  if (levelIndex === 7) return buildLevel8Balloon();
+  if (levelIndex === 8) return buildLevel9Plane();
+  return buildLevel10Jet();
 }
 
 function buildLevel1(): LevelDefinition {
@@ -480,10 +575,16 @@ function buildLevel1(): LevelDefinition {
   b.groundRow(147, 171, 'grass', 'dirt');
   b.addTile(150, 12, 'boost_pad');
   b.addEnemy('shroom', 153, 12, 148, 157);
-  b.addEnemy('beetle', 160, 12, 155, 165);
-  b.addTile(157, 10, 'question', 'heart');
-  b.addSpan(161, 165, 9.5, 'brick');
-  b.addCoinArc(161, 5, 8);
+  // Kletter-Turm + Rutschbahn auf der anderen Seite!
+  b.addLadder(156, 9, 12);
+  b.addSpan(157, 159, 9, 'bridge');
+  b.addTile(158, 6.5, 'question', 'heart');
+  b.addSlideRight(160, 9, 4);
+  b.addCoin(160, 8);
+  b.addCoin(161, 9);
+  b.addCoin(162, 10);
+  b.addCoin(163, 11);
+  b.addEnemy('beetle', 164, 12, 161, 166);
 
   // Checkpoint 3 + Sternen-Bumerang Truhe vor Boss 1!
   b.addCheckpoint(167, 13);
@@ -1067,6 +1168,529 @@ function buildLevel5Reef(): LevelDefinition {
     3,
     11,
     176,
+    boss
+  );
+}
+
+function buildLevel6Jungle(): LevelDefinition {
+  const b = new LevelBuilder();
+
+  // Abschnitt 1: Baumhaus-Leitern & erste Dschungel-Rutsche (Cols 0..48)
+  b.groundRow(0, 24, 'grass', 'jungle_wood');
+  b.addCoinArc(5, 4, 11);
+  b.addLadder(10, 8, 12);
+  b.addSpan(11, 14, 8, 'jungle_wood');
+  b.addTile(12, 5.5, 'question', 'coins_burst');
+  b.addSlideRight(15, 8, 5);
+  b.addCoin(15, 7);
+  b.addCoin(16, 8);
+  b.addCoin(17, 9);
+  b.addCoin(18, 10);
+  b.addCoin(19, 11);
+  b.addEnemy('beetle', 21, 12, 19, 24);
+
+  // Dschungel-Lianen-Kette über Schlucht (Cols 25..37)
+  b.addVine(27, 3, 5.8);
+  b.addCoin(27, 8.5);
+  b.addVine(31, 3, 5.8);
+  b.addSuperStar(31, 7.5); // Super-Stern #1!
+  b.addVine(35, 3, 5.8);
+
+  b.groundRow(38, 58, 'grass', 'jungle_wood');
+  b.addEnemy('shroom', 42, 12, 39, 47);
+  b.addBumper(46, 10);
+  b.addSpan(48, 52, 8, 'jungle_wood');
+  b.addTile(50, 8, 'question', 'heart');
+  b.addChest(50, 7, 'fire_blaster'); // NEUE WAFFE: Feuer-Blaster!
+
+  // Checkpoint 1 + Abschnitt 2: Kletter-Tempel & Sonic-Bumper (Cols 59..114)
+  b.groundRow(59, 80, 'grass', 'jungle_wood');
+  b.addCheckpoint(60, 13);
+  b.addTile(63, 12, 'boost_pad');
+  b.addLadder(68, 7, 12);
+  b.addSpan(69, 72, 7, 'stone');
+  b.addSuperStar(70.5, 5.5); // Super-Stern #2!
+  b.addSlideRight(73, 7, 6);
+  b.addGem(75, 8);
+  b.addGem(77, 10);
+
+  b.addRopeBridge(81, 88, 12);
+  b.addBumper(84, 9);
+  b.addEnemy('bat', 86, 7.5, 81, 90);
+
+  b.groundRow(89, 115, 'grass', 'jungle_wood');
+  b.addCheckpoint(90, 13);
+  b.addEnemy('beetle', 94, 12, 91, 100);
+  b.addTile(98, 12, 'spring');
+  b.addSpan(100, 105, 7.5, 'jungle_wood');
+  b.addTile(102, 7.5, 'question', 'big_heart');
+  b.addVine(109, 3, 5.5);
+
+  // Abschnitt 3: Hohe Tempelpyramide (klettern + rutschen) (Cols 116..165)
+  b.groundRow(116, 165, 'grass', 'jungle_wood');
+  b.addCheckpoint(118, 13);
+  b.addLadder(123, 8, 12);
+  b.addSpan(124, 127, 8, 'stone');
+  b.addLadder(127, 5, 7);
+  b.addSpan(128, 131, 5, 'stone');
+  b.addSuperStar(129.5, 3.5); // Super-Stern #3!
+  b.addSlideRight(132, 5, 8);
+  b.addCoinArc(133, 5, 7);
+  b.addEnemy('beetle', 144, 12, 140, 150);
+  b.addBumper(151, 10);
+  b.addHeart(158, 12, true);
+  b.addCheckpoint(162, 13);
+
+  // Boss 6 Arena: Dschungel-Wächter Konga! (Cols 166..193)
+  b.groundRow(166, 193, 'stone', 'jungle_wood');
+  b.addColumn(166, 3, 10, 'stone');
+  b.addColumn(193, 3, 12, 'stone');
+  b.addSpan(170, 173, 9.5, 'jungle_wood');
+  b.addSpan(185, 188, 9.5, 'jungle_wood');
+  b.addTile(179, 12, 'spring');
+  b.addHeart(171, 8.5, true);
+  b.addHeart(186, 8.5, true);
+
+  const boss: Boss = {
+    kind: 'jungle_kong',
+    nameDe: 'Dschungel-Wächter Konga',
+    nameEn: 'Jungle Guardian Konga',
+    subtitleDe: 'Herr des Urwald-Tempels',
+    subtitleEn: 'Lord of the Jungle Temple',
+    x: 184 * TILE,
+    y: 13 * TILE - 114,
+    w: 118,
+    h: 114,
+    vx: 0,
+    vy: 0,
+    hp: 34,
+    maxHp: 34,
+    arenaMinX: 167 * TILE,
+    arenaMaxX: 192 * TILE,
+    floorY: 13 * TILE,
+    active: false,
+    defeated: false,
+    facingRight: false,
+    phaseState: 'IDLE',
+    stateTimer: 50,
+    hitFlash: 0,
+    invulnTimer: 0,
+    attackPattern: 0,
+    animTick: 0,
+  };
+
+  return b.build(
+    {
+      id: 5,
+      mode: 'platformer',
+      worldCodeDe: 'Welt 6 · Dschungel',
+      worldCodeEn: 'World 6 · Jungle',
+      nameDe: 'Wilder Urwald & Tempel-Rutschen',
+      nameEn: 'Wild Jungle & Temple Slides',
+      subtitleDe: 'Kletter-Leitern, Moos-Rutschen & Wächter Konga',
+      subtitleEn: 'Climbing ladders, moss slides & Guardian Konga',
+      skyTop: '#065f46',
+      skyMid: '#059669',
+      skyBottom: '#a7f3d0',
+      farHillColor: '#064e3b',
+      nearHillColor: '#047857',
+      accentColor: '#22c55e',
+      backdropStyle: 'jungle',
+    },
+    194,
+    3,
+    11,
+    168,
+    boss
+  );
+}
+
+function buildLevel7Mountain(): LevelDefinition {
+  const b = new LevelBuilder();
+
+  // Aufstieg auf den Berg: von row 13 hoch bis row 4 & auf der anderen Seite runter!
+  b.groundRow(0, 20, 'ice', 'stone');
+  b.addCoinArc(4, 4, 11);
+  b.addTile(9, 10, 'question', 'coin');
+  b.addEnemy('beetle', 13, 12, 10, 18);
+
+  // Stufe 1 Bergaufstieg (Kletterwand + Eis-Stufen)
+  b.addLadder(18, 9, 12);
+  b.addSpan(19, 30, 9, 'ice');
+  b.addSpan(19, 30, 10, 'stone');
+  b.addEnemy('slime', 24, 8, 20, 29);
+
+  // Stufe 2 höher auf row 6!
+  b.addLadder(29, 6, 8);
+  b.addSpan(30, 40, 6, 'ice');
+  b.addSuperStar(34, 4.5); // Super-Stern #1 auf dem ersten Gipfel!
+  b.addChest(37, 5, 'thunder_hammer'); // NEUE WAFFE: Donner-Hammer!
+
+  // Gipfel-Hängebrücke hoch über dem Tal!
+  b.addRopeBridge(41, 48, 6);
+  b.addCoinArc(42, 6, 4.5);
+
+  // Lange Eis-Rutschbahn runter ins Berg-Camp!
+  b.addSpan(49, 51, 6, 'ice');
+  b.addSlideRight(52, 6, 7);
+  b.addCoin(52, 5);
+  b.addCoin(54, 7);
+  b.addCoin(56, 9);
+  b.addCoin(58, 11);
+
+  b.groundRow(59, 86, 'ice', 'stone');
+  b.addCheckpoint(60, 13);
+  b.addHeart(63, 12, true);
+  b.addTile(66, 12, 'boost_pad');
+  b.addBumper(73, 10);
+  b.addEnemy('bat', 76, 7, 70, 82);
+  b.addTile(78, 12, 'spring');
+  b.addSpan(80, 85, 7.5, 'ice');
+  b.addSuperStar(82.5, 6); // Super-Stern #2!
+
+  // Zweiter Steil-Aufstieg (Kletter-Zickzack + Plattformen)
+  b.groundRow(87, 110, 'ice', 'stone');
+  b.addCheckpoint(89, 13);
+  b.addLadder(93, 9, 12);
+  b.addSpan(94, 99, 9, 'ice');
+  b.addLadder(98, 5, 8);
+  b.addSpan(99, 106, 5, 'ice');
+  b.addTile(102, 5, 'question', 'big_heart');
+  b.addSlideRight(107, 5, 8);
+  b.addGem(109, 6.5);
+  b.addGem(111, 8.5);
+  b.addGem(113, 10.5);
+
+  b.groundRow(115, 148, 'ice', 'stone');
+  b.addCheckpoint(117, 13);
+  b.addEnemy('beetle', 122, 12, 118, 128);
+  b.addRopeBridge(129, 135, 11);
+  b.addSuperStar(132, 9.5); // Super-Stern #3!
+  b.addEnemy('bat', 140, 7.5, 135, 146);
+  b.addHeart(145, 12, true);
+  b.addCheckpoint(147, 13);
+
+  // Boss 7 Arena: Gipfel-Yeti Frosthorn! (Cols 149..176)
+  b.groundRow(149, 176, 'ice', 'stone');
+  b.addColumn(149, 3, 10, 'stone');
+  b.addColumn(176, 3, 12, 'stone');
+  b.addSpan(153, 156, 9.5, 'ice');
+  b.addSpan(168, 171, 9.5, 'ice');
+  b.addTile(162, 12, 'spring');
+  b.addHeart(154, 8.5, true);
+  b.addHeart(169, 8.5, true);
+
+  const boss: Boss = {
+    kind: 'yeti_king',
+    nameDe: 'Gipfel-Yeti Frosthorn',
+    nameEn: 'Summit Yeti Frosthorn',
+    subtitleDe: 'Riese des Ewigen Schnees',
+    subtitleEn: 'Giant of the Eternal Snow',
+    x: 167 * TILE,
+    y: 13 * TILE - 116,
+    w: 120,
+    h: 116,
+    vx: 0,
+    vy: 0,
+    hp: 36,
+    maxHp: 36,
+    arenaMinX: 150 * TILE,
+    arenaMaxX: 175 * TILE,
+    floorY: 13 * TILE,
+    active: false,
+    defeated: false,
+    facingRight: false,
+    phaseState: 'IDLE',
+    stateTimer: 50,
+    hitFlash: 0,
+    invulnTimer: 0,
+    attackPattern: 0,
+    animTick: 0,
+  };
+
+  return b.build(
+    {
+      id: 6,
+      mode: 'platformer',
+      worldCodeDe: 'Welt 7 · Berg',
+      worldCodeEn: 'World 7 · Mountain',
+      nameDe: 'Eisgipfel-Aufstieg & Schnee-Grat',
+      nameEn: 'Ice Peak Climb & Snow Ridge',
+      subtitleDe: 'Kletterwände, Eis-Rutschen & Yeti Frosthorn',
+      subtitleEn: 'Mountain climbs, ice slides & Yeti Frosthorn',
+      skyTop: '#0c4a6e',
+      skyMid: '#38bdf8',
+      skyBottom: '#f1f5f9',
+      farHillColor: '#475569',
+      nearHillColor: '#94a3b8',
+      accentColor: '#38bdf8',
+      backdropStyle: 'mountain',
+    },
+    177,
+    3,
+    11,
+    151,
+    boss
+  );
+}
+
+function buildLevel8Balloon(): LevelDefinition {
+  const b = new LevelBuilder();
+
+  b.addCoinArc(14, 5, 5);
+  b.addBoatObstacle('ring_gate', 21, 240);
+  b.addBoatObstacle('storm_cloud', 28, 410);
+  b.addBoatObstacle('ring_gate', 35, 190);
+  b.addBoatObstacle('heart_crate', 40, 320);
+  b.addSuperStar(45, 5);
+  b.addBoatObstacle('storm_cloud', 50, 220);
+  b.addBoatObstacle('mine', 55, 360, 1.4);
+
+  b.addBoatCheckpoint(60, 300);
+  b.addBoatObstacle('ring_gate', 66, 280);
+  b.addBoatObstacle('storm_cloud', 73, 180);
+  b.addBoatObstacle('storm_cloud', 75, 450);
+  b.addCoinArc(78, 5, 6);
+  b.addBoatObstacle('crate', 84, 300);
+  b.addBoatObstacle('mine', 90, 240, 1.8);
+  b.addSuperStar(96, 8);
+  b.addBoatObstacle('ring_gate', 102, 220);
+  b.addBoatObstacle('heart_crate', 108, 360);
+
+  b.addBoatCheckpoint(114, 300);
+  b.addBoatObstacle('storm_cloud', 120, 280);
+  b.addBoatObstacle('ring_gate', 127, 170);
+  b.addBoatObstacle('mine', 133, 380, -1.9);
+  b.addSuperStar(139, 4.5);
+  b.addBoatObstacle('crate', 144, 290);
+  b.addBoatObstacle('storm_cloud', 150, 420);
+  b.addHeart(154, 6, true);
+  b.addBoatCheckpoint(156, 300);
+
+  const boss: Boss = {
+    kind: 'storm_zeppelin',
+    nameDe: 'Sturm-Zeppelin Nimbus',
+    nameEn: 'Storm Zeppelin Nimbus',
+    subtitleDe: 'Fliegender Wolken-Kreuzer',
+    subtitleEn: 'Flying Cloud Cruiser',
+    x: 178 * TILE,
+    y: 260,
+    w: 132,
+    h: 92,
+    vx: 0,
+    vy: 2.4,
+    hp: 32,
+    maxHp: 32,
+    arenaMinX: 159 * TILE,
+    arenaMaxX: 184 * TILE,
+    floorY: 620,
+    active: false,
+    defeated: false,
+    facingRight: false,
+    phaseState: 'IDLE',
+    stateTimer: 55,
+    hitFlash: 0,
+    invulnTimer: 0,
+    attackPattern: 0,
+    animTick: 0,
+  };
+
+  return b.build(
+    {
+      id: 7,
+      mode: 'balloon_flight',
+      worldCodeDe: 'Welt 8 · Ballon',
+      worldCodeEn: 'World 8 · Balloon',
+      nameDe: 'Wolkenmeer & Heißluftballon',
+      nameEn: 'Cloud Sea & Hot-Air Balloon',
+      subtitleDe: 'Brenner-Schub, Goldringe & Sturm-Zeppelin Nimbus',
+      subtitleEn: 'Burner lift, gold rings & Storm Zeppelin Nimbus',
+      skyTop: '#0284c7',
+      skyMid: '#38bdf8',
+      skyBottom: '#fed7aa',
+      farHillColor: '#e0f2fe',
+      nearHillColor: '#bae6fd',
+      accentColor: '#fb923c',
+      backdropStyle: 'balloon_sky',
+    },
+    185,
+    3,
+    6,
+    161,
+    boss
+  );
+}
+
+function buildLevel9Plane(): LevelDefinition {
+  const b = new LevelBuilder();
+
+  b.addBoatObstacle('ring_gate', 18, 280);
+  b.addCoinArc(22, 4, 5);
+  b.addBoatObstacle('rock', 27, 420);
+  b.addBoatObstacle('crate', 32, 220);
+  b.addBoatObstacle('ring_gate', 37, 200);
+  b.addBoatObstacle('mine', 43, 330, 1.8);
+  b.addSuperStar(48, 6);
+  b.addBoatObstacle('heart_crate', 52, 260);
+
+  b.addBoatCheckpoint(58, 300);
+  b.addChest(63, 6, 'rocket_pod'); // NEUE WAFFE: Stern-Raketenwerfer!
+  b.addBoatObstacle('ring_gate', 70, 340);
+  b.addBoatObstacle('mine', 76, 200, 2.0);
+  b.addBoatObstacle('mine', 78, 430, -2.0);
+  b.addBoatObstacle('crate', 84, 300);
+  b.addBoatObstacle('storm_cloud', 90, 220);
+  b.addSuperStar(96, 4);
+  b.addBoatObstacle('ring_gate', 102, 310);
+
+  b.addBoatCheckpoint(112, 300);
+  b.addBoatObstacle('rock', 118, 180);
+  b.addBoatObstacle('rock', 120, 440);
+  b.addBoatObstacle('ring_gate', 126, 270);
+  b.addBoatObstacle('heart_crate', 132, 330);
+  b.addBoatObstacle('mine', 138, 250, 2.2);
+  b.addSuperStar(144, 7.5);
+  b.addBoatObstacle('crate', 149, 200);
+  b.addHeart(154, 6, true);
+  b.addBoatCheckpoint(156, 300);
+
+  const boss: Boss = {
+    kind: 'sky_baron',
+    nameDe: 'Wolken-Fregatte Baron Blitz',
+    nameEn: 'Sky Frigate Baron Blitz',
+    subtitleDe: 'Ass der Lüfte',
+    subtitleEn: 'Ace of the Sky Canyon',
+    x: 178 * TILE,
+    y: 260,
+    w: 128,
+    h: 96,
+    vx: 0,
+    vy: 3.1,
+    hp: 36,
+    maxHp: 36,
+    arenaMinX: 159 * TILE,
+    arenaMaxX: 184 * TILE,
+    floorY: 620,
+    active: false,
+    defeated: false,
+    facingRight: false,
+    phaseState: 'IDLE',
+    stateTimer: 50,
+    hitFlash: 0,
+    invulnTimer: 0,
+    attackPattern: 0,
+    animTick: 0,
+  };
+
+  return b.build(
+    {
+      id: 8,
+      mode: 'plane_shooter',
+      worldCodeDe: 'Welt 9 · Flieger',
+      worldCodeEn: 'World 9 · Biplane',
+      nameDe: 'Sonnen-Schlucht & Propeller-Flieger',
+      nameEn: 'Sun Canyon & Stunt Biplane',
+      subtitleDe: 'Sonic-Ringe, Raketen-Truhe & Baron Blitz',
+      subtitleEn: 'Sonic rings, rocket chest & Baron Blitz',
+      skyTop: '#9a3412',
+      skyMid: '#f97316',
+      skyBottom: '#fde047',
+      farHillColor: '#7c2d12',
+      nearHillColor: '#b45309',
+      accentColor: '#ef4444',
+      backdropStyle: 'canyon_sky',
+    },
+    185,
+    3,
+    6,
+    161,
+    boss
+  );
+}
+
+function buildLevel10Jet(): LevelDefinition {
+  const b = new LevelBuilder();
+
+  b.addBoatObstacle('ring_gate', 18, 250);
+  b.addBoatObstacle('asteroid', 24, 380);
+  b.addBoatObstacle('crate', 29, 200);
+  b.addBoatObstacle('mine', 35, 300, 2.2);
+  b.addBoatObstacle('ring_gate', 41, 180);
+  b.addSuperStar(46, 5);
+  b.addBoatObstacle('asteroid', 51, 420);
+  b.addBoatObstacle('heart_crate', 55, 290);
+
+  b.addBoatCheckpoint(60, 300);
+  b.addBoatObstacle('asteroid', 67, 210);
+  b.addBoatObstacle('asteroid', 69, 440);
+  b.addBoatObstacle('ring_gate', 75, 290);
+  b.addBoatObstacle('mine', 82, 230, 2.4);
+  b.addBoatObstacle('mine', 84, 410, -2.4);
+  b.addBoatObstacle('crate', 90, 310);
+  b.addSuperStar(96, 8);
+  b.addBoatObstacle('ring_gate', 103, 220);
+  b.addBoatObstacle('heart_crate', 109, 360);
+
+  b.addBoatCheckpoint(115, 300);
+  b.addBoatObstacle('asteroid', 122, 280);
+  b.addBoatObstacle('mine', 128, 190, 2.5);
+  b.addBoatObstacle('ring_gate', 135, 330);
+  b.addSuperStar(142, 4.5);
+  b.addBoatObstacle('crate', 148, 240);
+  b.addBoatObstacle('asteroid', 152, 430);
+  b.addHeart(156, 6, true);
+  b.addBoatCheckpoint(158, 300);
+
+  const boss: Boss = {
+    kind: 'titan_mecha',
+    nameDe: 'Mega-Luftschiff Titan-X',
+    nameEn: 'Mega Dreadnought Titan-X',
+    subtitleDe: 'Endgegner der Stratosphäre',
+    subtitleEn: 'Final Stratosphere Boss',
+    x: 178 * TILE,
+    y: 250,
+    w: 140,
+    h: 124,
+    vx: 0,
+    vy: 3.2,
+    hp: 44,
+    maxHp: 44,
+    arenaMinX: 160 * TILE,
+    arenaMaxX: 185 * TILE,
+    floorY: 620,
+    active: false,
+    defeated: false,
+    facingRight: false,
+    phaseState: 'IDLE',
+    stateTimer: 48,
+    hitFlash: 0,
+    invulnTimer: 0,
+    attackPattern: 0,
+    animTick: 0,
+  };
+
+  return b.build(
+    {
+      id: 9,
+      mode: 'jet_shooter',
+      worldCodeDe: 'Welt 10 · Kampfjet',
+      worldCodeEn: 'World 10 · Jet',
+      nameDe: 'Stratosphäre & Raketen-Kampfjet',
+      nameEn: 'Stratosphere & Rocket Fighter Jet',
+      subtitleDe: 'Überschall-Laser, Raketen & Titan-X',
+      subtitleEn: 'Supersonic lasers, homing rockets & Titan-X',
+      skyTop: '#090d1f',
+      skyMid: '#312e81',
+      skyBottom: '#7e22ce',
+      farHillColor: '#1e1b4b',
+      nearHillColor: '#4c1d95',
+      accentColor: '#a855f7',
+      backdropStyle: 'space_sky',
+    },
+    186,
+    3,
+    6,
+    162,
     boss
   );
 }

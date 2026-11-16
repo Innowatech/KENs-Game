@@ -1,4 +1,15 @@
-export type MusicTrack = 'world1' | 'world2' | 'world3' | 'world4' | 'world5' | 'boss';
+export type MusicTrack =
+  | 'world1'
+  | 'world2'
+  | 'world3'
+  | 'world4'
+  | 'world5'
+  | 'world6'
+  | 'world7'
+  | 'world8'
+  | 'world9'
+  | 'world10'
+  | 'boss';
 
 interface TrackDef {
   tempoMs: number;
@@ -8,42 +19,71 @@ interface TrackDef {
 }
 
 const TRACKS: Record<MusicTrack, TrackDef> = {
-  // Welt 1: Fröhliches C-Dur Abenteuer
   world1: {
     tempoMs: 210,
     wave: 'triangle',
     melody: [523, 659, 784, 659, 880, 784, 659, 587, 523, 587, 659, 784, 659, 523, 587, 0],
     bass:   [131, 0,   196, 0,   175, 0,   196, 0,   131, 0,   196, 0,   175, 0,   196, 147],
   },
-  // Welt 2: Geheimnisvolle Kristall-Grotte (a-Moll)
   world2: {
     tempoMs: 230,
     wave: 'sine',
     melody: [440, 523, 659, 880, 784, 659, 523, 494, 440, 523, 659, 784, 659, 587, 523, 0],
     bass:   [110, 0,   165, 0,   147, 0,   165, 0,   110, 0,   131, 0,   147, 0,   165, 0],
   },
-  // Welt 3: Schnelles Wildwasser-Boot / Sonic-Speed
   world3: {
     tempoMs: 165,
     wave: 'triangle',
     melody: [587, 740, 880, 988, 880, 740, 659, 740, 587, 740, 880, 1175, 988, 880, 740, 0],
     bass:   [147, 147, 220, 0,   196, 196, 220, 0,   147, 147, 220, 0,    196, 0,   220, 0],
   },
-  // Welt 4: Majestätisches Himmels-Archipel
   world4: {
     tempoMs: 200,
     wave: 'sine',
     melody: [659, 784, 988, 1175, 988, 880, 784, 659, 784, 880, 988, 1319, 1175, 988, 880, 0],
     bass:   [165, 0,   247, 0,    196, 0,   220, 0,   165, 0,   247, 0,    220,  0,   196, 0],
   },
-  // Welt 5: Tropisches Blubber-Riff (Marimba-Feeling)
   world5: {
     tempoMs: 190,
     wave: 'sine',
     melody: [523, 659, 784, 1046, 880, 784, 659, 523, 587, 698, 880, 784, 659, 587, 523, 0],
     bass:   [131, 0,   196, 0,    175, 0,   131, 0,   147, 0,   196, 0,   165, 0,   131, 0],
   },
-  // Boss-Kampf Spannung!
+  // Welt 6: Tropischer Dschungel-Groove
+  world6: {
+    tempoMs: 185,
+    wave: 'triangle',
+    melody: [440, 554, 659, 554, 740, 659, 554, 494, 440, 554, 659, 880, 740, 659, 554, 0],
+    bass:   [110, 165, 110, 0,   147, 196, 147, 0,   110, 165, 110, 0,   165, 147, 110, 0],
+  },
+  // Welt 7: Alpiner Bergaufstieg
+  world7: {
+    tempoMs: 205,
+    wave: 'triangle',
+    melody: [392, 494, 587, 784, 659, 587, 494, 587, 659, 784, 988, 880, 784, 659, 587, 0],
+    bass:   [196, 0,   247, 0,   165, 0,   196, 0,   147, 0,   196, 0,   220, 0,   196, 0],
+  },
+  // Welt 8: Schwebende Heißluftballon-Melodie
+  world8: {
+    tempoMs: 240,
+    wave: 'sine',
+    melody: [523, 659, 784, 988, 880, 784, 659, 523, 587, 698, 880, 1046, 988, 880, 784, 0],
+    bass:   [131, 0,   196, 0,   175, 0,   131, 0,   147, 0,   196, 0,    165, 0,   196, 0],
+  },
+  // Welt 9: Schneller Propeller-Flieger
+  world9: {
+    tempoMs: 155,
+    wave: 'triangle',
+    melody: [659, 659, 784, 988, 880, 784, 659, 587, 659, 784, 988, 1175, 988, 880, 784, 0],
+    bass:   [165, 165, 247, 165, 196, 196, 220, 196, 165, 165, 247, 165,  220, 196, 165, 0],
+  },
+  // Welt 10: Überschall-Kampfjet Synth!
+  world10: {
+    tempoMs: 140,
+    wave: 'sawtooth',
+    melody: [440, 523, 659, 880, 659, 784, 880, 1046, 880, 784, 659, 587, 659, 784, 880, 0],
+    bass:   [110, 110, 220, 110, 147, 147, 294, 147,  165, 165, 330, 165, 147, 131, 110, 0],
+  },
   boss: {
     tempoMs: 150,
     wave: 'sawtooth',
@@ -114,10 +154,10 @@ class SoundEngine {
       const bFreq = t.bass[step];
 
       if (mFreq > 0) {
-        this.playMusicNote(ctx, mFreq, (t.tempoMs / 1000) * 0.85, t.wave, 0.036);
+        this.playMusicNote(ctx, mFreq, (t.tempoMs / 1000) * 0.85, t.wave, 0.032);
       }
       if (bFreq > 0) {
-        this.playMusicNote(ctx, bFreq, (t.tempoMs / 1000) * 0.9, 'triangle', 0.042);
+        this.playMusicNote(ctx, bFreq, (t.tempoMs / 1000) * 0.9, 'triangle', 0.038);
       }
     }, def.tempoMs);
   }
@@ -230,8 +270,21 @@ class SoundEngine {
     this.tone(220, 960, 0.24, 'sine', 0.15);
   }
 
+  public bumper() {
+    this.tone(420, 1240, 0.16, 'sine', 0.14);
+  }
+
   public boost() {
     this.tone(320, 1180, 0.22, 'sawtooth', 0.11);
+  }
+
+  public fire() {
+    this.tone(680, 180, 0.14, 'sawtooth', 0.11);
+  }
+
+  public rocket() {
+    this.tone(180, 740, 0.22, 'sawtooth', 0.12);
+    this.tone(120, 50, 0.18, 'square', 0.08, 0.04);
   }
 
   public punch(powered: boolean) {

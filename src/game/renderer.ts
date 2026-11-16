@@ -67,6 +67,12 @@ export function renderGame(
 
   if (theme.mode === 'topdown_boat') {
     renderTopDownRiverWorld(ctx, engine);
+  } else if (
+    theme.mode === 'balloon_flight' ||
+    theme.mode === 'plane_shooter' ||
+    theme.mode === 'jet_shooter'
+  ) {
+    renderAerialFlightWorld(ctx, engine);
   } else {
     renderPlatformerWorld(ctx, engine);
   }
@@ -199,6 +205,96 @@ function renderTopDownRiverWorld(
   const blinkSkip = player.invulnTimer > 0 && Math.floor(tick / 4) % 2 === 0;
   if (!blinkSkip) {
     drawKennethBoat(ctx, engine, Math.floor(player.x - cameraX));
+  }
+}
+
+function renderAerialFlightWorld(
+  ctx: CanvasRenderingContext2D,
+  engine: SuperKennethEngine
+) {
+  const { level, player, cameraX, tick, viewW } = engine;
+  const theme = level.theme;
+
+  // Sky / Space Backdrop Gradient
+  const sky = ctx.createLinearGradient(0, 0, 0, GAME_H);
+  sky.addColorStop(0, theme.skyTop);
+  sky.addColorStop(0.55, theme.skyMid);
+  sky.addColorStop(1, theme.skyBottom);
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, viewW, GAME_H);
+
+  if (theme.backdropStyle === 'balloon_sky') {
+    drawBalloonSkyParallax(ctx, cameraX, tick, viewW);
+  } else if (theme.backdropStyle === 'canyon_sky') {
+    drawCanyonSkyParallax(ctx, cameraX, tick, viewW);
+  } else {
+    drawSpaceSkyParallax(ctx, cameraX, tick, viewW);
+  }
+
+  // Sky Checkpoints
+  for (const cp of level.checkpoints) {
+    const cx = Math.floor(cp.x - cameraX);
+    if (cx < -60 || cx > viewW + 60) continue;
+    ctx.save();
+    ctx.strokeStyle = cp.activated
+      ? 'rgba(52, 211, 153, 0.72)'
+      : 'rgba(251, 191, 36, 0.55)';
+    ctx.setLineDash([12, 10]);
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(cx + 12, 70);
+    ctx.lineTo(cx + 12, GAME_H - 70);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    [76, GAME_H - 76].forEach((by) => {
+      ctx.fillStyle = cp.activated ? '#10b981' : '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(cx + 12, by, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  // Collectibles
+  for (const col of level.collectibles) {
+    if (col.collected) continue;
+    const cx = Math.floor(col.x - cameraX);
+    if (cx + col.w < -20 || cx > viewW + 20) continue;
+    drawCollectible(ctx, col, cx, tick);
+  }
+
+  // Aerial Obstacles & Rings
+  for (const obs of level.boatObstacles) {
+    if (!obs.alive) continue;
+    const ox = Math.floor(obs.x - cameraX);
+    if (ox + obs.w < -60 || ox > viewW + 60) continue;
+    drawBoatObstacle(ctx, obs, ox, tick);
+  }
+
+  // Boss
+  if (!level.boss.defeated) {
+    const bx = Math.floor(level.boss.x - cameraX);
+    if (bx + level.boss.w > -80 && bx < viewW + 160) {
+      drawBoss(ctx, level.boss, bx, tick);
+    }
+  }
+
+  drawProjectiles(ctx, engine);
+
+  const blinkSkip = player.invulnTimer > 0 && Math.floor(tick / 4) % 2 === 0;
+  if (!blinkSkip) {
+    const px = Math.floor(player.x - cameraX);
+    if (theme.mode === 'balloon_flight') {
+      drawKennethBalloon(ctx, engine, px);
+    } else if (theme.mode === 'plane_shooter') {
+      drawKennethBiplane(ctx, engine, px);
+    } else {
+      drawKennethFighterJet(ctx, engine, px);
+    }
   }
 }
 
@@ -388,6 +484,68 @@ function drawBoatObstacle(
       ctx.lineTo(cx + 10, cy);
       ctx.fill();
     }
+  } else if (obs.kind === 'storm_cloud') {
+    const pulse = Math.sin(tick * 0.25 + obs.phase);
+    ctx.fillStyle = '#334155';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx - 18, cy + 4, 18, 0, Math.PI * 2);
+    ctx.arc(cx, cy - 8, 24, 0, Math.PI * 2);
+    ctx.arc(cx + 20, cy + 4, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    if (pulse > 0.1) {
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.moveTo(cx + 2, cy + 10);
+      ctx.lineTo(cx - 8, cy + 28);
+      ctx.lineTo(cx, cy + 28);
+      ctx.lineTo(cx - 6, cy + 44);
+      ctx.lineTo(cx + 10, cy + 22);
+      ctx.lineTo(cx + 2, cy + 22);
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else if (obs.kind === 'ring_gate') {
+    const glow = 10 + Math.sin(tick * 0.16) * 5;
+    ctx.shadowColor = '#fde047';
+    ctx.shadowBlur = glow;
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, obs.w * 0.34, obs.h * 0.46, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = '#fef9c3';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(cx - 2, cy, obs.w * 0.28, obs.h * 0.4, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (obs.kind === 'asteroid') {
+    ctx.translate(cx, cy);
+    ctx.rotate(obs.phase);
+    ctx.fillStyle = '#581c87';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    const rx = obs.w * 0.48;
+    const ry = obs.h * 0.48;
+    for (let i = 0; i < 8; i++) {
+      const ang = (i / 8) * Math.PI * 2;
+      const rad = i % 2 === 0 ? 1 : 0.78;
+      const px = Math.cos(ang) * rx * rad;
+      const py = Math.sin(ang) * ry * rad;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#3b0764';
+    ctx.beginPath();
+    ctx.arc(-6, -5, 6, 0, Math.PI * 2);
+    ctx.arc(8, 7, 4.5, 0, Math.PI * 2);
+    ctx.fill();
   }
   ctx.restore();
 }
@@ -459,6 +617,231 @@ function drawKennethBoat(
   ctx.restore();
 }
 
+function drawKennethBalloon(
+  ctx: CanvasRenderingContext2D,
+  engine: SuperKennethEngine,
+  x: number
+) {
+  const { player, tick } = engine;
+  const y = Math.floor(player.y);
+  const cx = x + player.w / 2;
+  const cy = y + player.h / 2;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(player.vx * 0.025);
+
+  // Ropes connecting envelope to basket
+  ctx.strokeStyle = '#78350f';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-14, 4);
+  ctx.lineTo(-9, 18);
+  ctx.moveTo(14, 4);
+  ctx.lineTo(9, 18);
+  ctx.stroke();
+
+  // Animated burner flame when lifting
+  if (player.vy < -0.5) {
+    ctx.fillStyle = tick % 4 < 2 ? '#facc15' : '#f97316';
+    ctx.beginPath();
+    ctx.moveTo(-5, 16);
+    ctx.lineTo(0, 6 + (tick % 3) * 2);
+    ctx.lineTo(5, 16);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Colorful striped balloon envelope
+  const envGrad = ctx.createLinearGradient(-24, -34, 24, 6);
+  envGrad.addColorStop(0, '#ef4444');
+  envGrad.addColorStop(0.5, '#facc15');
+  envGrad.addColorStop(1, '#2563eb');
+  ctx.fillStyle = envGrad;
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(0, -14, 23, Math.PI * 0.85, Math.PI * 0.15);
+  ctx.lineTo(13, 6);
+  ctx.lineTo(-13, 6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Basket
+  ctx.fillStyle = '#b45309';
+  roundedRect(ctx, -12, 16, 24, 16, 4);
+  ctx.fill();
+  ctx.stroke();
+
+  // Kenneth peeking out
+  ctx.fillStyle = '#fed7aa';
+  ctx.beginPath();
+  ctx.arc(0, 12, 7.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ef4444';
+  ctx.beginPath();
+  ctx.arc(0, 9.5, 8, Math.PI, 0);
+  ctx.fill();
+
+  if (player.isShielding) {
+    ctx.strokeStyle = '#38bdf8';
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.24)';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 42, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawKennethBiplane(
+  ctx: CanvasRenderingContext2D,
+  engine: SuperKennethEngine,
+  x: number
+) {
+  const { player, tick } = engine;
+  const cx = x + player.w / 2;
+  const cy = Math.floor(player.y) + player.h / 2;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(player.vy * 0.045);
+
+  // Tail & Fuselage
+  ctx.fillStyle = '#dc2626';
+  ctx.strokeStyle = '#450a0a';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-32, -12);
+  ctx.lineTo(-18, -2);
+  ctx.lineTo(24, -6);
+  ctx.quadraticCurveTo(34, 0, 24, 10);
+  ctx.lineTo(-26, 8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Racing yellow stripe
+  ctx.fillStyle = '#facc15';
+  roundedRect(ctx, -18, 0, 38, 4, 2);
+  ctx.fill();
+
+  // Biplane top & bottom wings
+  ctx.fillStyle = '#ef4444';
+  roundedRect(ctx, -10, -18, 28, 7, 3.5);
+  ctx.fill();
+  ctx.stroke();
+  roundedRect(ctx, -6, 9, 24, 7, 3.5);
+  ctx.fill();
+  ctx.stroke();
+
+  // Kenneth pilot head
+  ctx.fillStyle = '#fed7aa';
+  ctx.beginPath();
+  ctx.arc(2, -7, 7.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#38bdf8';
+  roundedRect(ctx, 2, -10, 7, 4, 2);
+  ctx.fill();
+
+  // Spinning Propeller
+  const propH = 6 + Math.abs(Math.sin(tick * 0.85)) * 16;
+  ctx.fillStyle = '#e2e8f0';
+  ctx.fillRect(29, -propH, 4, propH * 2);
+
+  if (player.isShielding) {
+    ctx.strokeStyle = '#38bdf8';
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.24)';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 42, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawKennethFighterJet(
+  ctx: CanvasRenderingContext2D,
+  engine: SuperKennethEngine,
+  x: number
+) {
+  const { player, tick } = engine;
+  const cx = x + player.w / 2;
+  const cy = Math.floor(player.y) + player.h / 2;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(player.vy * 0.04);
+
+  // Supersonic Afterburner Flame
+  const flameLen = 14 + (tick % 4) * 5;
+  ctx.fillStyle = '#38bdf8';
+  ctx.beginPath();
+  ctx.moveTo(-30, -6);
+  ctx.lineTo(-30 - flameLen, 0);
+  ctx.lineTo(-30, 6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#fde047';
+  ctx.beginPath();
+  ctx.moveTo(-30, -3);
+  ctx.lineTo(-30 - flameLen * 0.55, 0);
+  ctx.lineTo(-30, 3);
+  ctx.closePath();
+  ctx.fill();
+
+  // Sleek Fighter Jet Body
+  const jetGrad = ctx.createLinearGradient(-32, -16, 36, 14);
+  jetGrad.addColorStop(0, '#1e3a8a');
+  jetGrad.addColorStop(0.5, '#2563eb');
+  jetGrad.addColorStop(1, '#e2e8f0');
+  ctx.fillStyle = jetGrad;
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-34, -15);
+  ctx.lineTo(-14, -4);
+  ctx.lineTo(12, -8);
+  ctx.lineTo(36, 2);
+  ctx.lineTo(10, 10);
+  ctx.lineTo(-28, 12);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Red swept wing + rocket pod
+  ctx.fillStyle = '#ef4444';
+  ctx.beginPath();
+  ctx.moveTo(-8, 2);
+  ctx.lineTo(-22, -16);
+  ctx.lineTo(-6, -14);
+  ctx.lineTo(8, 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Gold Pilot Canopy
+  ctx.fillStyle = '#facc15';
+  ctx.beginPath();
+  ctx.ellipse(10, -4, 12, 5.5, 0.1, Math.PI, 0);
+  ctx.fill();
+  ctx.stroke();
+
+  if (player.isShielding) {
+    ctx.strokeStyle = '#38bdf8';
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.24)';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 44, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function renderPlatformerWorld(
   ctx: CanvasRenderingContext2D,
   engine: SuperKennethEngine
@@ -481,6 +864,10 @@ function renderPlatformerWorld(
     drawCavernParallax(ctx, cameraX, tick, viewW);
   } else if (theme.backdropStyle === 'reef') {
     drawReefParallax(ctx, cameraX, tick, viewW);
+  } else if (theme.backdropStyle === 'jungle') {
+    drawJungleParallax(ctx, cameraX, tick, viewW);
+  } else if (theme.backdropStyle === 'mountain') {
+    drawMountainParallax(ctx, cameraX, tick, viewW);
   } else {
     drawSkyArchipelagoParallax(ctx, cameraX, tick, viewW);
   }
@@ -751,6 +1138,64 @@ function drawProjectiles(
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
+    } else if (proj.kind === 'fire_orb') {
+      ctx.shadowColor = '#f97316';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.arc(0, 0, 6, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (proj.kind === 'lightning') {
+      ctx.shadowColor = '#c084fc';
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = '#e879f9';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-12, -14);
+      ctx.lineTo(6, -4);
+      ctx.lineTo(-2, 0);
+      ctx.lineTo(14, 14);
+      ctx.lineTo(-6, 4);
+      ctx.lineTo(2, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (proj.kind === 'rocket') {
+      ctx.rotate(proj.rotation);
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath();
+      ctx.moveTo(-14, -4);
+      ctx.lineTo(-24, 0);
+      ctx.lineTo(-14, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#f8fafc';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2;
+      roundedRect(ctx, -12, -6, 20, 12, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(8, -6);
+      ctx.lineTo(18, 0);
+      ctx.lineTo(8, 6);
+      ctx.closePath();
+      ctx.fill();
+    } else if (proj.kind === 'laser') {
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = '#38bdf8';
+      roundedRect(ctx, -16, -4, 32, 8, 4);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      roundedRect(ctx, -12, -2, 24, 4, 2);
+      ctx.fill();
     }
     ctx.restore();
   }
@@ -1101,6 +1546,221 @@ function drawReefParallax(
   }
 }
 
+function drawJungleParallax(
+  ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  tick: number,
+  viewW: number
+) {
+  const span = 280;
+  const cam = cameraX * 0.24;
+  const start = Math.floor((cam - span) / span);
+  const end = Math.ceil((cam + viewW + span) / span);
+
+  for (let i = start; i <= end; i++) {
+    const x = i * span - cam;
+    const s = hashSeed(i * 11.3);
+    // Ancient Mayan Pyramid / Temple Ruins in background
+    if (s > 0.55) {
+      ctx.fillStyle = 'rgba(6, 78, 59, 0.52)';
+      ctx.beginPath();
+      ctx.moveTo(x + 40, GAME_H);
+      ctx.lineTo(x + 95, 290);
+      ctx.lineTo(x + 165, 290);
+      ctx.lineTo(x + 220, GAME_H);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // Giant Jungle Canopy Trees
+    ctx.fillStyle = 'rgba(20, 83, 45, 0.58)';
+    roundedRect(ctx, x + 20, 220 + s * 60, 26, GAME_H - 220, 8);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(16, 185, 129, 0.35)';
+    ctx.beginPath();
+    ctx.arc(x + 33, 210 + s * 60, 68, 0, Math.PI * 2);
+    ctx.arc(x + 80, 230 + s * 50, 48, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Hanging Background Vines
+    const sway = Math.sin(tick * 0.03 + i) * 6;
+    ctx.strokeStyle = 'rgba(74, 222, 128, 0.35)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(x + 150, 0);
+    ctx.quadraticCurveTo(x + 150 + sway, 140, x + 156 + sway, 240);
+    ctx.stroke();
+  }
+}
+
+function drawMountainParallax(
+  ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  tick: number,
+  viewW: number
+) {
+  const mSpan = 360;
+  const mCam = cameraX * 0.2;
+  const mStart = Math.floor((mCam - mSpan) / mSpan);
+  const mEnd = Math.ceil((mCam + viewW + mSpan) / mSpan);
+
+  for (let i = mStart; i <= mEnd; i++) {
+    const mx = i * mSpan - mCam;
+    const s = hashSeed(i * 17.7);
+    const peakY = 120 + s * 130;
+    const peakX = mx + 170;
+
+    ctx.fillStyle = i % 2 === 0 ? '#475569' : '#334155';
+    ctx.beginPath();
+    ctx.moveTo(mx - 30, GAME_H);
+    ctx.lineTo(peakX, peakY);
+    ctx.lineTo(mx + 390, GAME_H);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath();
+    ctx.moveTo(peakX - 58, peakY + 95);
+    ctx.lineTo(peakX, peakY);
+    ctx.lineTo(peakX + 62, peakY + 95);
+    ctx.lineTo(peakX + 18, peakY + 75);
+    ctx.lineTo(peakX - 18, peakY + 86);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Snow Clouds
+  const cSpan = 320;
+  const cCam = cameraX * 0.14 - tick * 0.2;
+  const cStart = Math.floor((cCam - cSpan) / cSpan);
+  const cEnd = Math.ceil((cCam + viewW + cSpan) / cSpan);
+  for (let i = cStart; i <= cEnd; i++) {
+    const cx = i * cSpan - cCam;
+    const cy = 80 + hashSeed(i * 8.1) * 90;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 24, 0, Math.PI * 2);
+    ctx.arc(cx + 28, cy - 10, 30, 0, Math.PI * 2);
+    ctx.arc(cx + 56, cy, 22, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawBalloonSkyParallax(
+  ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  tick: number,
+  viewW: number
+) {
+  // Distant Hot Air Balloons + Fluffy Clouds
+  const bSpan = 360;
+  const bCam = cameraX * 0.15;
+  const bStart = Math.floor((bCam - bSpan) / bSpan);
+  const bEnd = Math.ceil((bCam + viewW + bSpan) / bSpan);
+
+  for (let i = bStart; i <= bEnd; i++) {
+    const bx = i * bSpan - bCam + 90;
+    const s = hashSeed(i * 21.3);
+    const by = 130 + s * 170 + Math.sin(tick * 0.03 + i) * 8;
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(251, 146, 60, 0.55)' : 'rgba(244, 114, 182, 0.55)';
+    ctx.beginPath();
+    ctx.arc(bx, by, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(120, 53, 15, 0.5)';
+    ctx.fillRect(bx - 5, by + 22, 10, 8);
+  }
+
+  const cSpan = 300;
+  const cCam = cameraX * 0.25 - tick * 0.22;
+  const cStart = Math.floor((cCam - cSpan) / cSpan);
+  const cEnd = Math.ceil((cCam + viewW + cSpan) / cSpan);
+  for (let i = cStart; i <= cEnd; i++) {
+    const cx = i * cSpan - cCam;
+    const cy = GAME_H - 95 + hashSeed(i * 4.9) * 50;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 44, 0, Math.PI * 2);
+    ctx.arc(cx + 54, cy - 16, 54, 0, Math.PI * 2);
+    ctx.arc(cx + 112, cy, 46, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawCanyonSkyParallax(
+  ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  tick: number,
+  viewW: number
+) {
+  const sunX = Math.max(760, viewW - 220);
+  const sunGrad = ctx.createRadialGradient(sunX, 150, 20, sunX, 150, 160);
+  sunGrad.addColorStop(0, '#fef08a');
+  sunGrad.addColorStop(0.5, 'rgba(251, 146, 60, 0.45)');
+  sunGrad.addColorStop(1, 'rgba(251, 146, 60, 0)');
+  ctx.fillStyle = sunGrad;
+  ctx.beginPath();
+  ctx.arc(sunX, 150, 160, 0, Math.PI * 2);
+  ctx.fill();
+
+  const span = 320;
+  const cam = cameraX * 0.3;
+  const start = Math.floor((cam - span) / span);
+  const end = Math.ceil((cam + viewW + span) / span);
+  for (let i = start; i <= end; i++) {
+    const mx = i * span - cam;
+    const s = hashSeed(i * 9.7);
+    const topY = 440 + s * 110;
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(124, 45, 18, 0.72)' : 'rgba(154, 52, 18, 0.65)';
+    ctx.beginPath();
+    ctx.moveTo(mx + 20, GAME_H);
+    ctx.lineTo(mx + 60, topY);
+    ctx.lineTo(mx + 185, topY);
+    ctx.lineTo(mx + 235, GAME_H);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawSpaceSkyParallax(
+  ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  tick: number,
+  viewW: number
+) {
+  // Stars
+  const starCount = Math.ceil(viewW / 24);
+  for (let i = 0; i < starCount; i++) {
+    const sx = ((i * 173 - cameraX * 0.15) % viewW + viewW) % viewW;
+    const sy = 30 + ((i * 97) % (GAME_H - 120));
+    const pulse = 0.4 + 0.6 * Math.abs(Math.sin(tick * 0.04 + i));
+    ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
+    ctx.beginPath();
+    ctx.arc(sx, sy, (i % 3) + 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Ringed Planet in upper sky
+  const px = viewW * 0.76 - ((cameraX * 0.05) % 240);
+  const py = 140;
+  ctx.fillStyle = '#c084fc';
+  ctx.beginPath();
+  ctx.arc(px, py, 44, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(250, 204, 21, 0.65)';
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  ctx.ellipse(px, py, 78, 16, -0.25, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Glowing Blue Earth Curvature below
+  const earthGrad = ctx.createLinearGradient(0, GAME_H - 110, 0, GAME_H);
+  earthGrad.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+  earthGrad.addColorStop(1, 'rgba(14, 116, 144, 0.75)');
+  ctx.fillStyle = earthGrad;
+  ctx.beginPath();
+  ctx.ellipse(viewW / 2, GAME_H + 140, viewW * 0.85, 220, 0, Math.PI, 0);
+  ctx.fill();
+}
+
 function drawTile(
   ctx: CanvasRenderingContext2D,
   tile: Tile,
@@ -1355,6 +2015,97 @@ function drawTile(
       ctx.lineTo(cx - 5, y + s - 3);
       ctx.stroke();
     }
+    ctx.restore();
+  } else if (tile.kind === 'ice') {
+    const grad = ctx.createLinearGradient(x, y, x, y + s);
+    grad.addColorStop(0, '#e0f2fe');
+    grad.addColorStop(1, '#38bdf8');
+    ctx.fillStyle = grad;
+    roundedRect(ctx, x, y, s, s, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#0284c7';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    roundedRect(ctx, x + 5, y + 3, s - 10, 7, 3);
+    ctx.fill();
+  } else if (tile.kind === 'jungle_wood') {
+    ctx.fillStyle = '#78350f';
+    roundedRect(ctx, x, y, s, s, 5);
+    ctx.fill();
+    ctx.strokeStyle = '#451a03';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#92400e';
+    roundedRect(ctx, x + 4, y + 6, s - 8, 8, 3);
+    ctx.fill();
+    ctx.fillStyle = '#16a34a';
+    roundedRect(ctx, x + 4, y + 1, 16, 5, 2);
+    ctx.fill();
+  } else if (tile.kind === 'ladder') {
+    ctx.fillStyle = '#92400e';
+    roundedRect(ctx, x + 8, y, 7, s, 3);
+    ctx.fill();
+    roundedRect(ctx, x + s - 15, y, 7, s, 3);
+    ctx.fill();
+    ctx.fillStyle = '#fbbf24';
+    ctx.strokeStyle = '#451a03';
+    ctx.lineWidth = 1.5;
+    for (let r = 8; r < s; r += 16) {
+      roundedRect(ctx, x + 6, y + r, s - 12, 6, 3);
+      ctx.fill();
+      ctx.stroke();
+    }
+  } else if (tile.kind === 'slide_right' || tile.kind === 'slide_left') {
+    const isRight = tile.kind === 'slide_right';
+    ctx.fillStyle = '#0284c7';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    if (isRight) {
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + s, y + s);
+      ctx.lineTo(x, y + s);
+    } else {
+      ctx.moveTo(x + s, y);
+      ctx.lineTo(x + s, y + s);
+      ctx.lineTo(x, y + s);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Bright glossy slide rail
+    ctx.strokeStyle = '#fde047';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    if (isRight) {
+      ctx.moveTo(x + 2, y + 2);
+      ctx.lineTo(x + s - 2, y + s - 2);
+    } else {
+      ctx.moveTo(x + s - 2, y + 2);
+      ctx.lineTo(x + 2, y + s - 2);
+    }
+    ctx.stroke();
+  } else if (tile.kind === 'bumper') {
+    const pulse = tile.springAnim ? Math.sin(tile.springAnim * 0.6) * 5 : 0;
+    const rad = 20 + pulse;
+    const cx = x + s / 2;
+    const cy = y + s / 2;
+    ctx.save();
+    ctx.shadowColor = '#f43f5e';
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = '#f43f5e';
+    ctx.strokeStyle = '#fef08a';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#fde047';
+    drawStarShape(ctx, cx, cy, 5, 11, 5);
+    ctx.fill();
     ctx.restore();
   }
 }
@@ -1688,6 +2439,67 @@ function drawBoss(
     ctx.arc(cx - 12, boss.y + boss.h / 2, 12, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+  } else if (boss.kind === 'jungle_kong' || boss.kind === 'yeti_king') {
+    const isYeti = boss.kind === 'yeti_king';
+    const bodyGrad = ctx.createLinearGradient(x, boss.y, x, boss.y + boss.h);
+    bodyGrad.addColorStop(0, isYeti ? '#f8fafc' : '#78350f');
+    bodyGrad.addColorStop(1, isYeti ? '#38bdf8' : '#451a03');
+    ctx.fillStyle = bodyGrad;
+    roundedRect(ctx, x + 12, boss.y + 18, boss.w - 24, boss.h - 24, 24);
+    ctx.fill();
+    ctx.stroke();
+
+    // Chest plate
+    ctx.fillStyle = isYeti ? '#bae6fd' : '#d97706';
+    roundedRect(ctx, cx - 24, boss.y + 46, 48, 42, 14);
+    ctx.fill();
+
+    // Horns or Crown
+    ctx.fillStyle = isYeti ? '#e0f2fe' : '#facc15';
+    ctx.beginPath();
+    ctx.moveTo(cx - 26, boss.y + 20);
+    ctx.lineTo(cx - 38, boss.y - 8);
+    ctx.lineTo(cx - 12, boss.y + 16);
+    ctx.moveTo(cx + 26, boss.y + 20);
+    ctx.lineTo(cx + 38, boss.y - 8);
+    ctx.lineTo(cx + 12, boss.y + 16);
+    ctx.fill();
+    ctx.stroke();
+
+    const look = boss.facingRight ? 8 : -8;
+    ctx.fillStyle = isYeti ? '#0ea5e9' : '#facc15';
+    ctx.beginPath();
+    ctx.arc(cx - 13 + look, boss.y + 34, 6, 0, Math.PI * 2);
+    ctx.arc(cx + 13 + look, boss.y + 34, 6, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (
+    boss.kind === 'storm_zeppelin' ||
+    boss.kind === 'sky_baron' ||
+    boss.kind === 'titan_mecha'
+  ) {
+    const isTitan = boss.kind === 'titan_mecha';
+    const isBaron = boss.kind === 'sky_baron';
+    const hullGrad = ctx.createLinearGradient(x, boss.y, x + boss.w, boss.y + boss.h);
+    hullGrad.addColorStop(0, isTitan ? '#a855f7' : isBaron ? '#ef4444' : '#64748b');
+    hullGrad.addColorStop(1, isTitan ? '#3b0764' : isBaron ? '#991b1b' : '#1e293b');
+    ctx.fillStyle = hullGrad;
+    ctx.beginPath();
+    ctx.ellipse(cx, boss.y + boss.h * 0.45, boss.w * 0.48, boss.h * 0.36, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Reactor / Cockpit Window
+    ctx.fillStyle = isTitan ? '#facc15' : '#38bdf8';
+    ctx.beginPath();
+    ctx.arc(cx - 18, boss.y + boss.h * 0.45, 13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Gondola / Lower Cannons
+    ctx.fillStyle = '#0f172a';
+    roundedRect(ctx, cx - 26, boss.y + boss.h * 0.72, 52, 22, 8);
+    ctx.fill();
+    ctx.stroke();
   } else {
     const isGriffin = boss.kind === 'storm_griffin';
     const flap = Math.sin(tick * 0.22) * 20;
@@ -1747,7 +2559,9 @@ function drawSuperKenneth(
   const hasGloves = engine.hasTool('power_gloves');
   const hasTurbo = engine.hasTool('turbo_boots');
   const hasSword = engine.hasTool('sun_sword');
+  const hasHammer = engine.hasTool('thunder_hammer');
   const onVine = player.grabbedVineId !== null;
+  const onLadder = player.onLadder;
 
   ctx.save();
   const centerX = x + w / 2;
@@ -1755,13 +2569,17 @@ function drawSuperKenneth(
   if (onVine) {
     const vine = engine.level.vines.find((v) => v.id === player.grabbedVineId);
     if (vine) ctx.rotate(-vine.angle * 0.45);
+  } else if (player.isSliding) {
+    ctx.rotate(player.facingRight ? -0.24 : 0.24);
   }
   if (!player.facingRight) {
     ctx.scale(-1, 1);
   }
 
   const runWave =
-    player.onGround && Math.abs(player.vx) > 0.3
+    onLadder
+      ? Math.sin(player.animTimer * 1.4) * 5
+      : player.onGround && !player.isSliding && Math.abs(player.vx) > 0.3
       ? Math.sin(player.animTimer * 1.4) * 7
       : 0;
 
@@ -1862,16 +2680,30 @@ function drawSuperKenneth(
   ctx.textAlign = 'center';
   ctx.fillText('K', 2, headY + 4);
 
-  // Arms (raised when swinging on vine!)
-  if (onVine) {
+  // Arms (raised when swinging on vine or climbing ladder!)
+  if (onVine || onLadder) {
     ctx.fillStyle = hasGloves ? '#f97316' : '#fed7aa';
     ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 2;
-    roundedRect(ctx, -4, -4, 10, 20, 5);
+    roundedRect(ctx, -4, -4 + (onLadder ? runWave : 0), 10, 20, 5);
     ctx.fill();
     ctx.stroke();
   } else if (player.attackTimer > 0) {
-    if (hasSword) {
+    if (hasHammer) {
+      ctx.save();
+      ctx.shadowColor = '#a855f7';
+      ctx.shadowBlur = 16;
+      ctx.fillStyle = '#78350f';
+      roundedRect(ctx, 12, h * 0.44, 34, 7, 3);
+      ctx.fill();
+      ctx.fillStyle = '#c084fc';
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 2.5;
+      roundedRect(ctx, 38, h * 0.25, 22, 32, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    } else if (hasSword) {
       ctx.save();
       ctx.shadowColor = '#facc15';
       ctx.shadowBlur = 16;

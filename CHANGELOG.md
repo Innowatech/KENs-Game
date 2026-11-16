@@ -1,10 +1,29 @@
 # Changelog – Super-Kenneth
 
+## [2.2.0] – 2026-11-16
+### Neu & Verbessert / Added & Improved
+- **5 Neue Welten (Welten 6–10):**
+  - **Welt 6 (Wilder Urwald & Tempel-Rutschen):** Baumhaus-Leitern zum Hochklettern, Moos-Rutschen, lange Lianen-Ketten, Sonic-Bumper & Boss **Dschungel-Wächter Konga**.
+  - **Welt 7 (Eisgipfel-Aufstieg & Schnee-Grat):** Bergaufstieg über Kletter-Etagen bis hoch auf den Gipfel, Hängebrücke & lange Eis-Rutschen hinab zu Boss **Gipfel-Yeti Frosthorn**.
+  - **Welt 8 (Wolkenmeer & Heißluftballon):** Schwebe mit Brenner-Schub durch den Himmel, sammle goldene Ringe, weiche Gewitterwolken aus & besiege **Sturm-Zeppelin Nimbus**.
+  - **Welt 9 (Sonnen-Schlucht & Propeller-Flieger):** Fliege mit dem Doppeldecker durch Sonic-Goldringe & gegen **Wolken-Fregatte Baron Blitz**.
+  - **Welt 10 (Stratosphäre & Raketen-Kampfjet):** Überschall-Kampfjet mit Zwillings-Laserkanone & zielsuchenden Mini-Raketen gegen das Endboss-Luftschiff **Titan-X**.
+- **3 Neue Waffen:** **Feuer-Blaster** (Welt 6), **Donner-Hammer** (Welt 7) und **Stern-Raketenwerfer** mit zielsuchenden Rauch-Raketen (Welt 9).
+- **Klettern, Rutschen & Sonic-Bumper:** Kletter-Leitern, schräge Rutschbahnen (auch in Welt 1) und federnde Sonic-Bumper-Sterne.
+- **Trampolin-Fix & Weltkarten-Fortschritt:** Volle Sprunghöhe auf Trampolinen inkl. Jump + Double Jump in der Luft; geschaffte Welten werden auf der Weltkarte markiert.
+
+## [2.1.1] – 2026-11-16
+### Verbessert / Improved
+- **Runder 8-Wege-Steuerkreis (Joystick):** Links unten ersetzt ein kompakter, fast durchsichtiger Steuerkreis das große Steuerkreuz – ermöglicht jetzt schräges Drücken und gleichzeitiges Kriechen (Bücken + Laufen).
+- **Dezente Ghost-Buttons:** Springen, Schlagen/Schwert, Bumerang und Schild rechts unten sind deutlich kleiner und fast komplett transparent ohne grelle Farbflächen.
+- **Aufgeräumter Querformat-Startscreen:** Langer Beschreibungstext und Info-Kacheln entfernt, sodass der Startbildschirm im Handy-Querformat ohne Scrollen komplett sichtbar ist.
+- **Changelog in den Settings (`⚙️`):** Vom Startscreen in die Einstellungen verschoben und dort sofort ganz oben ohne Scrollen erreichbar.
+
 ## [2.1.0] – 2026-11-16
 ### Neu & Verbessert / Added & Improved
 - **Formatfüllendes Vollbild-Querformat:** Das Spielfeld passt sich nun dynamisch und ohne schwarze Balken an 100 % des Smartphone- und Tablet-Bildschirms an.
 - **Schwebendes Mini-HUD & Zahnrad-Menü (`⚙️`):** Leben, Energie, Münzen, Super-Sterne und Werkzeuge schweben kompakt oben links; oben rechts öffnet das Zahnrad-Menü Musik, Soundeffekte, Sprachwechsel (DE/EN), Touch-Tasten, Pause, Neustart, Weltkarte und Startmenü.
-- **Halbtransparente Overlay-Steuerung:** Steuerkreuz (Hoch/Klettern, Links, Rechts, Bücken/Runter + Schild-Mitte) links unten und runde Aktionstasten (Springen, Schlagen/Schwert, Bumerang, Schild) rechts unten direkt halbtransparent über dem Spielfeld.
+- **Halbtransparente Overlay-Steuerung:** Steuerkreuz links unten und runde Aktionstasten rechts unten direkt halbtransparent über dem Spielfeld.
 - **Pro-Level-Hintergrundmusik:** Jede der 5 Welten hat eine eigene Hintergrundmelodie plus eine dynamische Boss-Kampfmusik.
 - **Individuelle, abwechslungsreiche Landschaften & Mechaniken:** Unterschiedliche Berggipfel und Schneekappen, große alte Eichen, Nadelbäume, Moos-Ruinen, Wasserfälle, **Hängebrücken**, **schwingende Lianen zum Festhalten** und **Sonic-Turbo-Felder**.
 - **Neue Welt 5 – Blubber-Riff & Glibber-Lagune:** Leichtere Unterwasser-Schwerkraft, aufsteigende Blubberblasen, hüpfende **Quallen-Trampoline**, Glibber-Gegner und Bosskampf gegen **Glibber-König Gloop**.

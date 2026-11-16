@@ -2,18 +2,17 @@ import React from 'react';
 import {
   Anchor,
   ArrowRight,
+  CheckCircle2,
   Compass,
   Crown,
-  History,
+  Flame,
   Languages,
+  Plane,
   Play,
+  Rocket,
   RotateCcw,
-  Shield,
-  ShieldCheck,
-  Sparkles,
-  Sword,
+  Settings,
   Trophy,
-  Zap,
 } from 'lucide-react';
 import {
   APP_VERSION,
@@ -31,11 +30,14 @@ interface OverlaysProps {
   score: number;
   coins: number;
   levelIndex: number;
+  clearedWorlds: number[];
+  changelogFromStart: boolean;
   onToggleLang: () => void;
+  onOpenSettings: () => void;
   onStartAdventure: (levelIndex?: number) => void;
   onOpenWorldMap: () => void;
-  onOpenChangelog: () => void;
   onBackToTitle: () => void;
+  onCloseChangelog: () => void;
   onResume: () => void;
   onRestartLevel: () => void;
   onNextLevel: () => void;
@@ -47,11 +49,13 @@ export const Overlays: React.FC<OverlaysProps> = ({
   score,
   coins,
   levelIndex,
+  clearedWorlds,
   onToggleLang,
+  onOpenSettings,
   onStartAdventure,
   onOpenWorldMap,
-  onOpenChangelog,
   onBackToTitle,
+  onCloseChangelog,
   onResume,
   onRestartLevel,
   onNextLevel,
@@ -60,143 +64,129 @@ export const Overlays: React.FC<OverlaysProps> = ({
   const t = TEXTS[lang];
 
   return (
-    <div className="absolute inset-0 z-30 bg-slate-950/82 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-6 overflow-y-auto">
+    <div className="absolute inset-0 z-30 bg-slate-950/82 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-5 overflow-y-auto">
       {screen === 'TITLE_MENU' && (
-        <div className="w-full max-w-4xl max-h-[94dvh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-8 shadow-2xl my-auto">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-8 items-center">
-            <div className="md:col-span-7 space-y-4">
-              <div className="flex items-center justify-between gap-2">
+        <div className="w-full max-w-4xl max-h-[94dvh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-6 shadow-2xl my-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 sm:gap-6 items-center">
+            {/* Left Side: Hero Branding + 1-line Welcome + Main Action Buttons */}
+            <div className="sm:col-span-7 space-y-3 sm:space-y-4">
+              <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-red-600 border-2 border-amber-400 flex items-center justify-center font-display font-bold text-2xl text-amber-300 shadow-lg shrink-0">
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-red-600 border-2 border-amber-400 flex items-center justify-center font-display font-bold text-xl sm:text-2xl text-amber-300 shadow-lg shrink-0">
                     K
                   </div>
                   <div>
-                    <p className="text-xs sm:text-sm font-semibold text-emerald-400">
+                    <p className="text-[11px] sm:text-xs font-semibold text-emerald-400">
                       {t.subtitle} · v{APP_VERSION}
                     </p>
-                    <h1 className="font-display text-3xl sm:text-5xl font-bold text-white tracking-tight">
+                    <h1 className="font-display text-2xl sm:text-4xl font-bold text-white tracking-tight leading-none mt-0.5">
                       Super-Kenneth
                     </h1>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={onToggleLang}
-                  className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-slate-100 flex items-center gap-1.5 cursor-pointer shrink-0"
-                >
-                  <Languages className="w-4 h-4 text-sky-400" />
-                  <span>{lang === 'de' ? 'DE / EN' : 'EN / DE'}</span>
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={onToggleLang}
+                    className="px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-slate-100 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Languages className="w-3.5 h-3.5 text-sky-400" />
+                    <span>{lang.toUpperCase()}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onOpenSettings}
+                    aria-label={t.settings}
+                    title={t.settings}
+                    className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-100 cursor-pointer"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
-              <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+              <p className="text-slate-200 text-sm sm:text-base font-medium">
                 {t.titleDesc}
               </p>
-
-              <div className="grid grid-cols-2 gap-3 text-sm text-slate-200">
-                <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3">
-                  <div className="font-bold text-amber-300">{t.tenLivesTitle}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">{t.tenLivesDesc}</div>
-                </div>
-                <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3">
-                  <div className="font-bold text-cyan-300">{t.fiveToolsTitle}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">{t.fiveToolsDesc}</div>
-                </div>
-              </div>
 
               <div className="flex flex-wrap items-center gap-2.5 pt-1">
                 <button
                   type="button"
                   onClick={() => onStartAdventure(0)}
-                  className="px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-bold text-base sm:text-lg flex items-center gap-2 shadow-lg transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-5 py-2.5 sm:py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-bold text-sm sm:text-base flex items-center gap-2 shadow-lg transition-colors cursor-pointer whitespace-nowrap"
                 >
-                  <Play className="w-5 h-5 fill-current" />
+                  <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                   <span>{t.startAdventure}</span>
                 </button>
                 <button
                   type="button"
                   onClick={onOpenWorldMap}
-                  className="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-bold text-sm sm:text-base flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-4 py-2.5 sm:py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-bold text-sm flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   <Compass className="w-4 h-4 text-amber-400" />
                   <span>{t.worldMap}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={onOpenChangelog}
-                  className="px-3.5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-bold text-sm flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  <History className="w-4 h-4 text-sky-400" />
-                  <span>{t.changelog}</span>
                 </button>
                 <PWAInstallButton lang={lang} />
               </div>
             </div>
 
-            <div className="md:col-span-5 bg-slate-950/70 border border-slate-800 rounded-xl p-4 sm:p-5 space-y-3">
-              <h2 className="font-display font-bold text-base sm:text-lg text-amber-300">
+            {/* Right Side: Compact Controls Reference */}
+            <div className="sm:col-span-5 bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 sm:p-4 space-y-2">
+              <h2 className="font-display font-bold text-sm sm:text-base text-amber-300">
                 {t.abilitiesTitle}
               </h2>
-              <ul className="space-y-2 text-xs sm:text-sm text-slate-300">
-                <li className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
+              <ul className="space-y-1.5 text-xs text-slate-300">
+                <li className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1">
                   <span>{t.keyMove}</span>
-                  <span className="font-mono-num text-xs font-bold text-slate-200">
-                    WASD / Pfeile
+                  <span className="font-mono-num text-[11px] font-bold text-slate-200">
+                    WASD / Stick
                   </span>
                 </li>
-                <li className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
+                <li className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1">
                   <span>{t.keyJump}</span>
-                  <span className="font-mono-num text-xs font-bold text-slate-200">
+                  <span className="font-mono-num text-[11px] font-bold text-slate-200">
                     Space / W
                   </span>
                 </li>
-                <li className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
+                <li className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1">
                   <span>{t.keyCrouch}</span>
-                  <span className="font-mono-num text-xs font-bold text-slate-200">
+                  <span className="font-mono-num text-[11px] font-bold text-slate-200">
                     S / Down
                   </span>
                 </li>
-                <li className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
+                <li className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1">
                   <span>{t.keyAttack}</span>
-                  <span className="font-mono-num text-xs font-bold text-slate-200">
+                  <span className="font-mono-num text-[11px] font-bold text-slate-200">
                     X / Enter
                   </span>
                 </li>
-                <li className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
+                <li className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1">
                   <span>{t.keyTool}</span>
-                  <span className="font-mono-num text-xs font-bold text-slate-200">
+                  <span className="font-mono-num text-[11px] font-bold text-slate-200">
                     E / F
                   </span>
                 </li>
                 <li className="flex items-center justify-between gap-2">
                   <span>{t.keyShield}</span>
-                  <span className="font-mono-num text-xs font-bold text-slate-200">
+                  <span className="font-mono-num text-[11px] font-bold text-slate-200">
                     C / Q
                   </span>
                 </li>
               </ul>
-
-              <div className="pt-1 flex items-center gap-3 text-xs text-slate-400">
-                <Shield className="w-4 h-4 text-orange-400 shrink-0" />
-                <Sparkles className="w-4 h-4 text-yellow-400 shrink-0" />
-                <Zap className="w-4 h-4 text-cyan-400 shrink-0" />
-                <ShieldCheck className="w-4 h-4 text-sky-400 shrink-0" />
-                <Sword className="w-4 h-4 text-amber-300 shrink-0" />
-              </div>
             </div>
           </div>
         </div>
       )}
 
       {screen === 'WORLD_MAP' && (
-        <div className="w-full max-w-4xl max-h-[94dvh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-8 shadow-2xl space-y-4 sm:space-y-5 my-auto">
+        <div className="w-full max-w-4xl max-h-[94dvh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-6 shadow-2xl space-y-4 my-auto">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="font-display text-2xl sm:text-3xl font-bold text-white">
+              <h2 className="font-display text-xl sm:text-3xl font-bold text-white">
                 {t.worldMapTitle}
               </h2>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+              <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
                 {t.worldMapDesc}
               </p>
             </div>
@@ -209,18 +199,23 @@ export const Overlays: React.FC<OverlaysProps> = ({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {WORLD_ROADMAP.map((world) => {
               const code = lang === 'de' ? world.worldCodeDe : world.worldCodeEn;
               const title = lang === 'de' ? world.titleDe : world.titleEn;
               const landscape = lang === 'de' ? world.landscapeDe : world.landscapeEn;
               const bossName = lang === 'de' ? world.bossNameDe : world.bossNameEn;
+              const isCleared = clearedWorlds.includes(world.id);
               return (
                 <div
                   key={world.id}
-                  className="rounded-xl border border-slate-600 bg-slate-800/80 p-4 sm:p-5 flex flex-col justify-between gap-4"
+                  className={`rounded-xl border p-4 flex flex-col justify-between gap-3 ${
+                    isCleared
+                      ? 'border-emerald-500/60 bg-slate-800/90'
+                      : 'border-slate-600 bg-slate-800/80'
+                  }`}
                 >
-                  <div className="space-y-1.5">
+                  <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs font-bold">
                       <span
                         className="flex items-center gap-1.5"
@@ -229,14 +224,30 @@ export const Overlays: React.FC<OverlaysProps> = ({
                         {world.mode === 'topdown_boat' && (
                           <Anchor className="w-3.5 h-3.5" />
                         )}
+                        {world.mode === 'balloon_flight' && (
+                          <Flame className="w-3.5 h-3.5" />
+                        )}
+                        {world.mode === 'plane_shooter' && (
+                          <Plane className="w-3.5 h-3.5" />
+                        )}
+                        {world.mode === 'jet_shooter' && (
+                          <Rocket className="w-3.5 h-3.5" />
+                        )}
                         <span>{code}</span>
                       </span>
-                      <span className="text-emerald-400">{t.playable}</span>
+                      {isCleared ? (
+                        <span className="flex items-center gap-1 text-amber-300">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{t.clearedBadge}</span>
+                        </span>
+                      ) : (
+                        <span className="text-emerald-400">{t.playable}</span>
+                      )}
                     </div>
-                    <h3 className="font-display text-lg sm:text-xl font-bold text-white">
+                    <h3 className="font-display text-base sm:text-lg font-bold text-white">
                       {title}
                     </h3>
-                    <p className="text-xs sm:text-sm text-slate-300">{landscape}</p>
+                    <p className="text-xs text-slate-300">{landscape}</p>
                     <p className="text-xs text-slate-400">
                       {t.bossPrefix}:{' '}
                       <span className="text-amber-300 font-semibold">{bossName}</span>
@@ -246,7 +257,7 @@ export const Overlays: React.FC<OverlaysProps> = ({
                   <button
                     type="button"
                     onClick={() => onStartAdventure(world.id)}
-                    className="w-full py-2.5 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-bold text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    className="w-full py-2 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-bold text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
                     <Play className="w-4 h-4 fill-current" />
                     <span>{t.playWorld}</span>
@@ -259,28 +270,28 @@ export const Overlays: React.FC<OverlaysProps> = ({
       )}
 
       {screen === 'CHANGELOG' && (
-        <div className="w-full max-w-3xl max-h-[94dvh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-8 shadow-2xl space-y-4 sm:space-y-5 my-auto">
+        <div className="w-full max-w-3xl max-h-[94dvh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-6 shadow-2xl space-y-4 my-auto">
           <div className="flex items-center justify-between gap-4">
-            <h2 className="font-display text-2xl sm:text-3xl font-bold text-white">
+            <h2 className="font-display text-xl sm:text-2xl font-bold text-white">
               {t.changelogTitle}
             </h2>
             <button
               type="button"
-              onClick={onBackToTitle}
+              onClick={onCloseChangelog}
               className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sm font-bold text-slate-200 cursor-pointer whitespace-nowrap"
             >
               {t.back}
             </button>
           </div>
 
-          <div className="space-y-4 max-h-[62vh] overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-[65dvh] overflow-y-auto pr-1">
             {CHANGELOG_ENTRIES.map((entry) => {
               const title = lang === 'de' ? entry.titleDe : entry.titleEn;
               const items = lang === 'de' ? entry.itemsDe : entry.itemsEn;
               return (
                 <div
                   key={entry.version}
-                  className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-2"
+                  className="bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 space-y-1.5"
                 >
                   <div className="flex items-center justify-between text-xs text-slate-400">
                     <span className="font-mono-num font-bold text-emerald-400 text-sm">
@@ -288,7 +299,7 @@ export const Overlays: React.FC<OverlaysProps> = ({
                     </span>
                     <span>{entry.date}</span>
                   </div>
-                  <h3 className="font-display font-bold text-base text-white">
+                  <h3 className="font-display font-bold text-sm sm:text-base text-white">
                     {title}
                   </h3>
                   <ul className="space-y-1 text-xs sm:text-sm text-slate-300 list-disc pl-5">
@@ -350,7 +361,7 @@ export const Overlays: React.FC<OverlaysProps> = ({
           </div>
           <div>
             <p className="text-sm font-bold text-emerald-400">
-              {t.levelClearBadge} ({levelIndex + 1}/5)
+              {t.levelClearBadge} ({levelIndex + 1}/10)
             </p>
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mt-1">
               {t.levelClearTitle}
@@ -384,7 +395,7 @@ export const Overlays: React.FC<OverlaysProps> = ({
       )}
 
       {screen === 'GAME_OVER' && (
-        <div className="w-full max-w-md bg-slate-900 border border-rose-500/60 rounded-2xl p-6 sm:p-7 text-center space-y-5 shadow-2xl my-auto">
+        <div className="w-full max-w-md max-h-[94dvh] overflow-y-auto bg-slate-900 border border-rose-500/60 rounded-2xl p-5 sm:p-7 text-center space-y-5 shadow-2xl my-auto">
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-rose-400">
             {t.gameOverTitle}
           </h2>
@@ -424,7 +435,7 @@ export const Overlays: React.FC<OverlaysProps> = ({
       )}
 
       {screen === 'VICTORY' && (
-        <div className="w-full max-w-lg bg-slate-900 border border-amber-400/70 rounded-2xl p-6 sm:p-7 text-center space-y-5 shadow-2xl my-auto">
+        <div className="w-full max-w-lg max-h-[94dvh] overflow-y-auto bg-slate-900 border border-amber-400/70 rounded-2xl p-5 sm:p-7 text-center space-y-5 shadow-2xl my-auto">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500/20 border border-amber-400 flex items-center justify-center">
             <Trophy className="w-9 h-9 text-amber-400" />
           </div>

@@ -4,6 +4,7 @@ import { GameCanvas } from './components/GameCanvas';
 import { HUD } from './components/HUD';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { Overlays } from './components/Overlays';
+import { SettingsModal } from './components/SettingsModal';
 import { TouchControls } from './components/TouchControls';
 import { soundEngine } from './game/audio';
 import { SuperKennethEngine } from './game/engine';
@@ -44,6 +45,10 @@ export default function App() {
     }
   });
   const [screen, setScreen] = useState<GameScreenState>('TITLE_MENU');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [changelogOrigin, setChangelogOrigin] = useState<'TITLE_MENU' | 'PAUSED'>(
+    'TITLE_MENU'
+  );
   const [hud, setHud] = useState<HudSnapshot>(INITIAL_HUD);
   const [musicMuted, setMusicMuted] = useState<boolean>(() => {
     try {
@@ -61,6 +66,34 @@ export default function App() {
   });
   const [showTouchControls, setShowTouchControls] = useState(true);
   const [endStats, setEndStats] = useState({ score: 0, coins: 0, levelIndex: 0 });
+  const [clearedWorlds, setClearedWorlds] = useState<number[]>(() => {
+    try {
+      const raw = localStorage.getItem('super_kenneth_progress');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed?.clearedWorlds)) return parsed.clearedWorlds;
+      }
+    } catch {
+      // Ignore storage error
+    }
+    return [];
+  });
+
+  const markWorldCleared = useCallback((idx: number) => {
+    setClearedWorlds((prev) => {
+      if (prev.includes(idx)) return prev;
+      const next = [...prev, idx];
+      try {
+        localStorage.setItem(
+          'super_kenneth_progress',
+          JSON.stringify({ clearedWorlds: next })
+        );
+      } catch {
+        // Ignore storage error
+      }
+      return next;
+    });
+  }, []);
 
   const engineRef = useRef<SuperKennethEngine | null>(null);
   const inputRef = useRef<InputState>({
@@ -80,6 +113,7 @@ export default function App() {
       {
         onHudUpdate: (snapshot) => setHud(snapshot),
         onLevelClear: (levelIndex, score, coins) => {
+          markWorldCleared(levelIndex);
           setEndStats({ levelIndex, score, coins });
           setScreen('LEVEL_CLEAR');
         },
@@ -88,6 +122,7 @@ export default function App() {
           setScreen('GAME_OVER');
         },
         onVictory: (score, coins) => {
+          markWorldCleared(9);
           setEndStats((prev) => ({ ...prev, score, coins }));
           setScreen('VICTORY');
         },
@@ -104,29 +139,31 @@ export default function App() {
     soundEngine.setSfxMuted(sfxMuted);
   }, [sfxMuted]);
 
+  const actuallyPlaying = screen === 'PLAYING' && !settingsOpen;
+
   useEffect(() => {
     const engine = engineRef.current;
     if (engine) {
-      engine.isRunning = screen === 'PLAYING';
+      engine.isRunning = actuallyPlaying;
     }
-    if (screen === 'PLAYING' && engine) {
+    if (actuallyPlaying && engine) {
       soundEngine.startMusic(engine.getMusicTrack());
     } else {
       soundEngine.stopMusic();
     }
-  }, [screen]);
+  }, [actuallyPlaying]);
 
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState === 'hidden') {
         soundEngine.stopMusic();
-      } else if (screen === 'PLAYING' && engineRef.current) {
+      } else if (actuallyPlaying && engineRef.current) {
         soundEngine.startMusic(engineRef.current.getMusicTrack());
       }
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
-  }, [screen]);
+  }, [actuallyPlaying]);
 
   const handleToggleLang = useCallback(() => {
     setLang((prev) => {
@@ -159,6 +196,7 @@ export default function App() {
     (levelIdx = 0) => {
       soundEngine.unlock();
       clearInput();
+      setSettingsOpen(false);
       engineRef.current?.startNewGame(levelIdx);
       setScreen('PLAYING');
       if (engineRef.current) {
@@ -171,6 +209,7 @@ export default function App() {
   const handleRestartLevel = useCallback(() => {
     soundEngine.unlock();
     clearInput();
+    setSettingsOpen(false);
     if (engineRef.current) {
       engineRef.current.loadLevel(engineRef.current.levelIndex, false);
       soundEngine.startMusic(engineRef.current.getMusicTrack());
@@ -181,6 +220,7 @@ export default function App() {
   const handleNextLevel = useCallback(() => {
     soundEngine.unlock();
     clearInput();
+    setSettingsOpen(false);
     if (engineRef.current) {
       engineRef.current.loadLevel(engineRef.current.levelIndex + 1, false);
       soundEngine.startMusic(engineRef.current.getMusicTrack());
@@ -236,51 +276,24 @@ export default function App() {
       <GameCanvas
         engineRef={engineRef}
         inputRef={inputRef}
-        isActive={screen === 'PLAYING'}
+        isActive={actuallyPlaying}
         onTogglePause={handleTogglePause}
       />
 
-      {/* Compact Floating In-Game HUD + Top-Right Gear Menu */}
+      {/* Compact Floating In-Game HUD + Top-Right Gear Button */}
       {inGameOrPaused && (
         <HUD
           hud={hud}
           lang={lang}
-          musicMuted={musicMuted}
-          sfxMuted={sfxMuted}
-          showTouchControls={showTouchControls}
-          isPlaying={screen === 'PLAYING'}
-          onToggleLang={handleToggleLang}
-          onToggleMusic={handleToggleMusic}
-          onToggleSfx={handleToggleSfx}
-          onToggleTouch={() => setShowTouchControls((v) => !v)}
-          onPause={() => {
-            if (screen === 'PLAYING') {
-              clearInput();
-              setScreen('PAUSED');
-            }
-          }}
-          onResume={() => {
-            soundEngine.unlock();
-            setScreen('PLAYING');
-          }}
-          onRestartLevel={handleRestartLevel}
-          onOpenWorldMap={() => {
+          onOpenSettings={() => {
             clearInput();
-            setScreen('WORLD_MAP');
-          }}
-          onOpenChangelog={() => {
-            clearInput();
-            setScreen('CHANGELOG');
-          }}
-          onBackToTitle={() => {
-            clearInput();
-            setScreen('TITLE_MENU');
+            setSettingsOpen(true);
           }}
         />
       )}
 
       {/* Boss Health Bar Overlay */}
-      {screen === 'PLAYING' && hud.bossActive && (
+      {actuallyPlaying && hud.bossActive && (
         <div className="absolute top-12 sm:top-3 left-1/2 -translate-x-1/2 z-20 w-[min(86%,420px)] bg-slate-950/75 backdrop-blur-sm border border-rose-500/70 rounded-xl px-3.5 py-1.5 shadow-xl pointer-events-none">
           <div className="flex items-center justify-between text-xs font-bold mb-1">
             <div className="flex items-center gap-1.5 text-rose-300">
@@ -305,7 +318,7 @@ export default function App() {
       )}
 
       {/* Unlocked Tool Toast Overlay */}
-      {screen === 'PLAYING' && hud.recentToolUnlock && (
+      {actuallyPlaying && hud.recentToolUnlock && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 z-20 bg-slate-900/92 backdrop-blur-sm border border-amber-400 rounded-xl px-4 py-2.5 shadow-2xl pointer-events-none text-center max-w-sm">
           <div className="flex items-center justify-center gap-2 text-amber-300 font-display font-bold text-sm sm:text-base">
             <Sparkles className="w-4 h-4" />
@@ -326,8 +339,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Semi-Transparent Corner Touch Overlay Controls */}
-      {screen === 'PLAYING' && showTouchControls && (
+      {/* Circular Thumbstick + Ultra-Transparent Ghost Buttons */}
+      {actuallyPlaying && showTouchControls && (
         <TouchControls
           inputRef={inputRef}
           mode={hud.mode}
@@ -343,26 +356,76 @@ export default function App() {
         score={endStats.score}
         coins={endStats.coins}
         levelIndex={endStats.levelIndex}
+        clearedWorlds={clearedWorlds}
+        changelogFromStart={changelogOrigin === 'TITLE_MENU'}
         onToggleLang={handleToggleLang}
+        onOpenSettings={() => {
+          clearInput();
+          setSettingsOpen(true);
+        }}
         onStartAdventure={handleStartAdventure}
         onOpenWorldMap={() => {
           clearInput();
+          setSettingsOpen(false);
           setScreen('WORLD_MAP');
-        }}
-        onOpenChangelog={() => {
-          clearInput();
-          setScreen('CHANGELOG');
         }}
         onBackToTitle={() => {
           clearInput();
+          setSettingsOpen(false);
           setScreen('TITLE_MENU');
+        }}
+        onCloseChangelog={() => {
+          setScreen(changelogOrigin);
+          setSettingsOpen(true);
         }}
         onResume={() => {
           soundEngine.unlock();
+          setSettingsOpen(false);
           setScreen('PLAYING');
         }}
         onRestartLevel={handleRestartLevel}
         onNextLevel={handleNextLevel}
+      />
+
+      {/* Shared Settings Modal (accessible from Title Screen & In-Game Gear!) */}
+      <SettingsModal
+        open={settingsOpen}
+        lang={lang}
+        inGame={inGameOrPaused}
+        musicMuted={musicMuted}
+        sfxMuted={sfxMuted}
+        showTouchControls={showTouchControls}
+        onClose={(resumeIfInGame) => {
+          setSettingsOpen(false);
+          if (resumeIfInGame && inGameOrPaused) {
+            soundEngine.unlock();
+            setScreen('PLAYING');
+          }
+        }}
+        onToggleMusic={handleToggleMusic}
+        onToggleSfx={handleToggleSfx}
+        onToggleLang={handleToggleLang}
+        onToggleTouch={() => setShowTouchControls((v) => !v)}
+        onOpenChangelog={() => {
+          setChangelogOrigin(inGameOrPaused ? 'PAUSED' : 'TITLE_MENU');
+          setSettingsOpen(false);
+          setScreen('CHANGELOG');
+        }}
+        onPause={() => {
+          setSettingsOpen(false);
+          setScreen('PAUSED');
+        }}
+        onRestartLevel={handleRestartLevel}
+        onOpenWorldMap={() => {
+          clearInput();
+          setSettingsOpen(false);
+          setScreen('WORLD_MAP');
+        }}
+        onBackToTitle={() => {
+          clearInput();
+          setSettingsOpen(false);
+          setScreen('TITLE_MENU');
+        }}
       />
 
       <OfflineIndicator lang={lang} />

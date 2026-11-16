@@ -8,14 +8,22 @@ export type GameScreenState =
   | 'GAME_OVER'
   | 'VICTORY';
 
-export type GameMode = 'platformer' | 'topdown_boat';
+export type GameMode =
+  | 'platformer'
+  | 'topdown_boat'
+  | 'balloon_flight'
+  | 'plane_shooter'
+  | 'jet_shooter';
 
 export type ToolId =
   | 'power_gloves'
   | 'star_boomerang'
   | 'turbo_boots'
   | 'aegis_shield'
-  | 'sun_sword';
+  | 'sun_sword'
+  | 'fire_blaster'
+  | 'thunder_hammer'
+  | 'rocket_pod';
 
 export interface ToolInfo {
   id: ToolId;
@@ -58,8 +66,8 @@ export const TOOLS_CATALOG: Record<ToolId, ToolInfo> = {
     nameEn: 'Turbo Boots',
     shortDe: 'Turbo',
     shortEn: 'Turbo',
-    descDe: 'Schnelleres Rennen, höheres Springen & schnelleres Boot!',
-    descEn: 'Faster running, higher jumps, and faster boat speed!',
+    descDe: 'Schnelleres Rennen, höheres Springen & schnelleres Fahrzeug!',
+    descEn: 'Faster running, higher jumps, and faster vehicle speed!',
     keyHint: 'Passiv',
     color: '#06b6d4',
   },
@@ -85,6 +93,39 @@ export const TOOLS_CATALOG: Record<ToolId, ToolInfo> = {
     keyHint: 'X',
     color: '#facc15',
   },
+  fire_blaster: {
+    id: 'fire_blaster',
+    nameDe: 'Feuer-Blaster',
+    nameEn: 'Fire Blaster',
+    shortDe: 'Feuer',
+    shortEn: 'Fire',
+    descDe: 'Schleudert beim Angreifen brennende Feuerbälle voraus!',
+    descEn: 'Launches blazing fireballs forward whenever you attack!',
+    keyHint: 'X',
+    color: '#ef4444',
+  },
+  thunder_hammer: {
+    id: 'thunder_hammer',
+    nameDe: 'Donner-Hammer',
+    nameEn: 'Thunder Hammer',
+    shortDe: 'Donner',
+    shortEn: 'Thunder',
+    descDe: 'Entfesselt gewaltige Blitzwellen mit extra hoher Wucht!',
+    descEn: 'Unleashes heavy lightning waves with massive impact!',
+    keyHint: 'X',
+    color: '#a855f7',
+  },
+  rocket_pod: {
+    id: 'rocket_pod',
+    nameDe: 'Stern-Raketenwerfer',
+    nameEn: 'Star Rocket Pod',
+    shortDe: 'Raketen',
+    shortEn: 'Rockets',
+    descDe: 'Feuert zielsuchende Mini-Raketen mit Rauchschweif ab!',
+    descEn: 'Fires homing mini-rockets with glowing smoke trails!',
+    keyHint: 'E',
+    color: '#f43f5e',
+  },
 };
 
 export type TileKind =
@@ -101,10 +142,16 @@ export type TileKind =
   | 'cloud'
   | 'coral'
   | 'sand'
+  | 'ice'
+  | 'jungle_wood'
   | 'lava'
   | 'spring'
   | 'boost_pad'
-  | 'jelly_pad';
+  | 'jelly_pad'
+  | 'ladder'
+  | 'slide_right'
+  | 'slide_left'
+  | 'bumper';
 
 export interface Tile {
   id: number;
@@ -186,7 +233,16 @@ export interface Enemy {
   squashTimer: number;
 }
 
-export type BoatObstacleKind = 'rock' | 'iceberg' | 'whirlpool' | 'mine' | 'crate' | 'heart_crate';
+export type BoatObstacleKind =
+  | 'rock'
+  | 'iceberg'
+  | 'whirlpool'
+  | 'mine'
+  | 'crate'
+  | 'heart_crate'
+  | 'storm_cloud'
+  | 'ring_gate'
+  | 'asteroid';
 
 export interface BoatObstacle {
   id: number;
@@ -208,7 +264,12 @@ export type BossKind =
   | 'lava_dragon'
   | 'ice_leviathan'
   | 'storm_griffin'
-  | 'goo_king';
+  | 'goo_king'
+  | 'jungle_kong'
+  | 'yeti_king'
+  | 'storm_zeppelin'
+  | 'sky_baron'
+  | 'titan_mecha';
 
 export type BossPhaseState =
   | 'IDLE'
@@ -253,6 +314,10 @@ export interface Projectile {
     | 'boomerang'
     | 'shockwave'
     | 'fireball'
+    | 'fire_orb'
+    | 'lightning'
+    | 'rocket'
+    | 'laser'
     | 'stone_wave'
     | 'water_orb'
     | 'wind_blade'
@@ -267,6 +332,7 @@ export interface Projectile {
   life: number;
   maxLife: number;
   returning?: boolean;
+  homing?: boolean;
   rotation: number;
 }
 
@@ -301,6 +367,8 @@ export interface Player {
   vy: number;
   facingRight: boolean;
   onGround: boolean;
+  onLadder: boolean;
+  isSliding: boolean;
   jumpsRemaining: number;
   isCrouching: boolean;
   isShielding: boolean;
@@ -308,6 +376,7 @@ export interface Player {
   vineOffset: number;
   vineCooldown: number;
   boostTimer: number;
+  isSpringLaunch: boolean;
   attackTimer: number;
   attackCooldown: number;
   boomerangCooldown: number;
@@ -356,7 +425,17 @@ export interface LevelTheme {
   farHillColor: string;
   nearHillColor: string;
   accentColor: string;
-  backdropStyle: 'meadow' | 'cavern' | 'river' | 'sky' | 'reef';
+  backdropStyle:
+    | 'meadow'
+    | 'cavern'
+    | 'river'
+    | 'sky'
+    | 'reef'
+    | 'jungle'
+    | 'mountain'
+    | 'balloon_sky'
+    | 'canyon_sky'
+    | 'space_sky';
   lowGravity?: boolean;
 }
 
